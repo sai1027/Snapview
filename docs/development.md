@@ -78,8 +78,8 @@ size/annotation bugs. Watch `document.Dirty`, history state, `tool`, `busy` and
 
 This is an in-app smoke/integration runner, not xUnit/NUnit or `dotnet test`.
 The WPF app starts on an STA thread, runs `SmokeTests.Run`, writes results and exits
-without opening the main window. The base suite currently has **16** checks;
-the optional fixtures add one combined HEIC/AVIF check for **17** total.
+without opening the main window. The base suite currently has **17** checks;
+the optional fixtures add one combined HEIC/AVIF check for **18** total.
 
 | Area | Assertions |
 | --- | --- |
@@ -123,10 +123,11 @@ Check changed interactions at the 850 × 590 minimum, normal size and maximized:
 
 1. Open/drop/paste, folder navigation and unsaved-change save/discard/cancel.
 2. Fit/actual size, zoom/pan, and aligned crop/annotations after zoom or rotation.
-3. Type inline; reflow/stretch/move/recolor text; resize shapes; shorten either arrow end; undo/redo; cancel crop without burning selection chrome in.
-4. Save copy in a different format; overwrite a test file; reopen and Revert.
-5. Source-vs-canvas details, GPS/no-GPS states, OCR selection/copy and busy controls.
-6. Keyboard focus, relevant shortcuts/tooltips and the original empty state.
+3. Type inline; reflow/stretch/move/recolor text; resize shapes; shorten either arrow end; verify the active color ring follows selection/undo; test Undo and Redo buttons.
+4. Draw crops in both directions and near image edges; check outside dimming, live pixel dimensions/ratio, Apply, undo and cancel. Verify the bottom status bar in maximized view and after restoring.
+5. Save copy in a different format; overwrite a test file; reopen and Revert.
+6. Source-vs-canvas details, GPS/no-GPS states, OCR selection/copy and busy controls.
+7. Keyboard focus, relevant shortcuts/tooltips and the original empty state.
 
 Do not change personal Windows defaults or remove recovery data just to validate
 a patch. Test installation/association behavior in a disposable Windows account or

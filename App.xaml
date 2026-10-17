@@ -3,6 +3,21 @@
     <SolidColorBrush x:Key="Ink" Color="#242B29"/>
     <SolidColorBrush x:Key="Muted" Color="#777F79"/>
     <SolidColorBrush x:Key="Accent" Color="#426958"/>
+    <Style x:Key="InkSwatch" TargetType="RadioButton">
+      <Setter Property="Width" Value="30"/><Setter Property="Height" Value="30"/>
+      <Setter Property="Margin" Value="1,0"/><Setter Property="VerticalAlignment" Value="Center"/>
+      <Setter Property="Cursor" Value="Hand"/>
+      <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="RadioButton">
+        <Border x:Name="Ring" BorderBrush="Transparent" BorderThickness="2" CornerRadius="7" Padding="3" Background="Transparent">
+          <Border Background="{TemplateBinding Background}" BorderBrush="#80909B94" BorderThickness="1" CornerRadius="3"/>
+        </Border>
+        <ControlTemplate.Triggers>
+          <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Ring" Property="Background" Value="#DEE5DF"/></Trigger>
+          <Trigger Property="IsChecked" Value="True"><Setter TargetName="Ring" Property="BorderBrush" Value="#245D9A"/><Setter TargetName="Ring" Property="Background" Value="#E0EBF7"/></Trigger>
+          <Trigger Property="IsEnabled" Value="False"><Setter Property="Opacity" Value="0.34"/></Trigger>
+        </ControlTemplate.Triggers>
+      </ControlTemplate></Setter.Value></Setter>
+    </Style>
     <Style TargetType="Window">
       <Setter Property="FontFamily" Value="Segoe UI"/><Setter Property="FontSize" Value="13"/>
       <Setter Property="Background" Value="#FAFBF9"/><Setter Property="Foreground" Value="{StaticResource Ink}"/>

@@ -7,7 +7,6 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
-using System.Windows.Shapes;
 using System.Windows.Threading;
 using Microsoft.Win32;
 
@@ -22,7 +21,7 @@ public partial class MainWindow : Window
     private bool fit = true, busy, drawing, panning;
     private Point start, panStart;
     private double panX, panY;
-    private Shape? preview;
+    private CropPreview? preview;
     private bool syncingAnnotationControls;
     private Rect? crop;
     private string[] siblings = [];
@@ -35,6 +34,7 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+        WindowBounds.Attach(this);
         Annotations.Document = document;
         Annotations.Changed += () => Refresh();
         Annotations.SelectionChanged += AnnotationSelectionChanged;
@@ -61,6 +61,7 @@ public partial class MainWindow : Window
         bool loaded = image != null;
         EditTools.IsEnabled = ZoomTools.IsEnabled = SaveButton.IsEnabled = InfoButton.IsEnabled = loaded && !busy;
         UndoButton.IsEnabled = document.CanUndo && !busy;
+        RedoButton.IsEnabled = document.CanRedo && !busy;
         Annotations.IsEnabled = !busy;
         Viewer.Visibility = loaded ? Visibility.Visible : Visibility.Collapsed;
         Welcome.Visibility = loaded ? Visibility.Collapsed : Visibility.Visible;
@@ -70,6 +71,7 @@ public partial class MainWindow : Window
         ImageHost.Height = Overlay.Height = Photo.Height = image.PixelHeight;
         Annotations.Width = image.PixelWidth; Annotations.Height = image.PixelHeight;
         Annotations.RefreshScene();
+        AnnotationSelectionChanged();
         var name = document.Path == null ? "Clipboard image" : System.IO.Path.GetFileName(document.Path);
         TitleLabel.Text = name + (document.Dirty ? "  ·  Edited" : "");
         Title = $"{name}{(document.Dirty ? " •" : "")} — Snapview";
@@ -149,6 +151,7 @@ public partial class MainWindow : Window
         double centerY = (Viewer.VerticalOffset + Viewer.ViewportHeight / 2) / old;
         ImageScale.ScaleX = ImageScale.ScaleY = value;
         Annotations.SetZoom(value);
+        if (preview != null) { preview.Zoom = value; preview.InvalidateVisual(); }
         ZoomLabel.Content = $"{value * 100:0.#}%";
         Viewer.UpdateLayout();
         Viewer.ScrollToHorizontalOffset(centerX * value - Viewer.ViewportWidth / 2);
@@ -184,6 +187,7 @@ public partial class MainWindow : Window
     private void Commit(BitmapSource bitmap, bool resetFit = false)
     { Overlay.Children.Clear(); crop = null; document.Commit(bitmap); Refresh(resetFit); }
     private void UndoClick(object sender, RoutedEventArgs e) { if (busy) return; Annotations.CancelInteraction(); Annotations.FinishTextEditing(); CancelGesture(); document.Undo(); Refresh(); }
+    private void RedoClick(object sender, RoutedEventArgs e) => Redo();
     private void Redo() { if (busy) return; Annotations.CancelInteraction(); Annotations.FinishTextEditing(); CancelGesture(); document.Redo(); Refresh(); }
     private void RotateClick(object sender, RoutedEventArgs e)
     { if (document.BaseImage != null && !busy) { Annotations.FinishTextEditing(); CancelGesture(); Commit(Imaging.Normalize(Imaging.Orient(document.Current!, 6)), true); } }
@@ -230,7 +234,16 @@ public partial class MainWindow : Window
         else if (!busy) SetTool((string)((Button)sender).Tag);
     }
     private void ColorClick(object sender, RoutedEventArgs e)
-    { ink = (Color)ColorConverter.ConvertFromString((string)((Button)sender).Tag); Annotations.ChangeColor(ink); }
+    {
+        if (busy) { SyncInkSwatches(); return; }
+        ink = (Color)ColorConverter.ConvertFromString((string)((RadioButton)sender).Tag);
+        Annotations.ChangeColor(ink); SyncInkSwatches();
+    }
+    private void SyncInkSwatches()
+    {
+        foreach (var swatch in DrawingTools.Children.OfType<RadioButton>())
+            swatch.IsChecked = (Color)ColorConverter.ConvertFromString((string)swatch.Tag) == ink;
+    }
     private void AnnotationSelectionChanged()
     {
         if (FontSizeInput == null) return;
@@ -251,7 +264,7 @@ public partial class MainWindow : Window
         AnnotationHint.Text = text ? "Type directly · drag Move to reposition · side handles wrap · corners stretch/squash · double-click to edit"
             : selected?.Kind == "Arrow" ? "Drag either end handle to shorten or redirect the arrow. Drag the line or Move handle to reposition."
             : "Click an object to select it. Drag to move; use handles to resize. Delete removes it; Ctrl+Z undoes.";
-        syncingAnnotationControls = false;
+        SyncInkSwatches(); syncingAnnotationControls = false;
     }
     private void StrokeChanged(object sender, SelectionChangedEventArgs e)
     { if (!syncingAnnotationControls && Annotations?.Document != null) Annotations.ChangeStroke(InkWidth); }
@@ -271,16 +284,14 @@ public partial class MainWindow : Window
     {
         if (document.BaseImage == null || busy || tool != "Crop") return;
         start = ImagePoint(e); crop = null; Overlay.Children.Clear(); drawing = true;
-        preview = new Rectangle { Stroke = Brushes.White, StrokeThickness = 1.5 / Scale,
-            Fill = new SolidColorBrush(Color.FromArgb(35, 255, 255, 255)), StrokeDashArray = new DoubleCollection([6, 3]) };
+        preview = new CropPreview { Width = Overlay.Width, Height = Overlay.Height, Zoom = Scale, IsHitTestVisible = false };
         Overlay.Children.Add(preview); Overlay.CaptureMouse(); e.Handled = true;
     }
     private void CanvasMove(object sender, MouseEventArgs e)
     {
         if (!drawing || preview == null) return;
         var rect = new Rect(start, ImagePoint(e)); crop = rect;
-        preview.Width = rect.Width; preview.Height = rect.Height;
-        Canvas.SetLeft(preview, rect.X); Canvas.SetTop(preview, rect.Y);
+        preview.Selection = rect; preview.InvalidateVisual();
     }
     private void CanvasUp(object sender, MouseButtonEventArgs e)
     {
@@ -294,10 +305,8 @@ public partial class MainWindow : Window
     {
         if (busy || document.BaseImage == null) return;
         if (crop is not Rect rect || rect.Width < 1 || rect.Height < 1) { Toast("Drag on the image to select a crop first."); return; }
-        int x = (int)Math.Floor(rect.X), y = (int)Math.Floor(rect.Y);
-        int width = Math.Min(document.BaseImage!.PixelWidth - x, Math.Max(1, (int)Math.Ceiling(rect.Width)));
-        int height = Math.Min(document.BaseImage!.PixelHeight - y, Math.Max(1, (int)Math.Ceiling(rect.Height)));
-        var result = new CroppedBitmap(document.Current, new Int32Rect(x, y, width, height)); result.Freeze();
+        var bounds = CropPreview.PixelBounds(rect, document.BaseImage.PixelWidth, document.BaseImage.PixelHeight);
+        var result = new CroppedBitmap(document.Current, bounds); result.Freeze();
         Commit(Imaging.Normalize(result), true); DoneClick(sender, e); Toast("Cropped. Ctrl+Z to undo.");
     }
 

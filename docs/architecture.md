@@ -11,6 +11,8 @@
 | `Imaging.cs` | `ImageDocument`, codec/transform helpers, metadata extraction and persistent original recovery |
 | `Annotations.cs` | Immutable object geometry/text, scene snapshots and lazy compositing |
 | `AnnotationEditor.cs` | Inline text, object hit-testing, move/resize/end handles and gesture grouping |
+| `CropPreview.cs` | UI-only crop shading and live dimensions/ratio; shared pixel bounds for the actual crop |
+| `WindowBounds.cs` | Native monitor work-area handling for borderless maximization |
 | `Dialogs.cs` | Dimension entry/proportion locking and extracted-text selection/copy |
 | `Associations.cs` | Per-user Windows file-handler capabilities and Shell change notification |
 | `SmokeTests.cs` | In-process checks against production imaging and persistence code |
@@ -80,6 +82,20 @@ pixels with no editable project/sidecar file. Reopening those exports, or images
 annotated by earlier versions, cannot recover their individual objects. Whole-image
 crop/resize/rotate currently composite layers into the resulting pixels; undo
 restores the previous editable scene. Selection alone never changes dirty state.
+
+## Crop, history controls and window layout
+
+Crop selection keeps its original colors while an even-odd mask dims the surrounding
+image. A badge shows the exact export dimensions and approximate aspect ratio.
+`CropPreview.PixelBounds` rounds outward to integer image pixels and is shared by
+the preview and Apply. Selection strokes and badge type remain constant in screen
+size as zoom changes. These visuals are never included in the saved bitmap.
+
+Markup colors are radio controls with a persistent selection ring, synchronized
+with the selected object's color, including after undo/redo. Undo and Redo have
+separate toolbar buttons, enabled from document history. `WindowBounds` handles
+`WM_GETMINMAXINFO` using the current monitor's work area in native pixels so the
+custom-chrome window keeps its status bar visible above the taskbar when maximized.
 
 ## Threading and responsiveness
 

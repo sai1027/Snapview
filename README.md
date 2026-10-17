@@ -34,7 +34,7 @@ Snapview registers its capabilities under the current user's registry keys. It d
 | Browse a folder | Left/right arrows; files are ordered by name |
 | Zoom | Mouse wheel, `+` / `−`; `Ctrl+0` fits and `Ctrl+1` shows actual size |
 | Pan | Drag in viewing mode, middle drag, or Space+drag while marking up |
-| Crop | `C`, drag a rectangle, Enter or Apply crop; Esc cancels |
+| Crop | `C`, drag a rectangle; outside pixels dim and live dimensions/ratio appear; Enter or Apply crop; Esc cancels |
 | Resize | Resize toolbar button; proportions can be locked |
 | Rotate | `R`, clockwise in 90° steps |
 | Annotate | Markup: pen, rectangle, ellipse, arrow, text; click an object to move, resize or recolor it |
@@ -46,7 +46,9 @@ Snapview registers its capabilities under the current user's registry keys. It d
 | Details | `Ctrl+I`: file size, format, resolution, camera EXIF and GPS when present |
 | Map | View on map opens the source coordinates in OpenStreetMap in your browser |
 | Save | `Ctrl+S` replaces supported files; Save copy or `Ctrl+Shift+S` converts/exports |
-| Recover | `Ctrl+Z` / `Ctrl+Y`, or … → Revert to original |
+| Undo / redo | Toolbar arrows; `Ctrl+Z` / `Ctrl+Y` (also `Ctrl+Shift+Z` for redo) |
+| Recover | … → Revert to original |
+| Maximize | Title bar or `F11`; dimensions, format, size and zoom stay in the bottom bar |
 | Clipboard | `Ctrl+V` opens a copied image; `Ctrl+C` copies the edited image |
 
 **Opening:** JPEG, PNG, BMP, GIF, TIFF and ICO use Windows imaging. WebP, HEIC/HEIF and AVIF use the bundled ImageMagick codecs on demand. Unsupported or malformed files show an error. **GIF, multipage TIFF and ICO show their first frame only; exported edits are still images.** Animated playback and page browsing are outside this version.

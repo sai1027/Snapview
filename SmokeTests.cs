@@ -41,6 +41,22 @@ internal static class SmokeTests
             var rotated = Imaging.Normalize(Imaging.Orient(small, 6)); Assert(rotated.PixelWidth == 400 && rotated.PixelHeight == 600, "Rotation dimensions");
             var cropped = new CroppedBitmap(rotated, new Int32Rect(10, 20, 120, 180)); Assert(cropped.PixelWidth == 120 && cropped.PixelHeight == 180, "Crop dimensions");
         });
+        Check("Crop preview pixels match the applied crop at fractional zoom and edges", () =>
+        {
+            foreach (var (selection, expected) in new[]
+            {
+                (new Rect(10, 20, 120, 180), new Int32Rect(10, 20, 120, 180)),
+                (new Rect(10.8, 20.3, 120.4, 180.8), new Int32Rect(10, 20, 122, 182)),
+                (new Rect(new Point(1200, 800), new Point(1197.4, 797.2)), new Int32Rect(1197, 797, 3, 3)),
+                (new Rect(0, 0, 1200, 800), new Int32Rect(0, 0, 1200, 800))
+            })
+            {
+                var bounds = CropPreview.PixelBounds(selection, image.PixelWidth, image.PixelHeight);
+                Assert(bounds == expected, "Unexpected pixel bounds: " + bounds);
+                var result = new CroppedBitmap(image, bounds);
+                Assert(result.PixelWidth == expected.Width && result.PixelHeight == expected.Height, "Crop badge/export mismatch");
+            }
+        });
         Check("Undo, redo and save tracking", () =>
         {
             var doc = new ImageDocument(); doc.Load(image, source); Assert(!doc.Dirty, "Fresh image dirty");

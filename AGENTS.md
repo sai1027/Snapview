@@ -17,6 +17,8 @@ are outside the current scope unless explicitly requested.
 - `Imaging.cs`: `ImageDocument`, WIC/Magick codecs, transforms, metadata, `Originals`.
 - `Annotations.cs`: immutable annotation geometry/text, scene snapshots, lazy export compositing.
 - `AnnotationEditor.cs`: inline text input, object hit-testing, selection handles and grouped drags.
+- `CropPreview.cs`: UI-only outside shading, crop dimensions/ratio and shared pixel rounding.
+- `WindowBounds.cs`: monitor work-area bounds for the borderless maximized window.
 - `Dialogs.cs`: resize and OCR copy dialogs; annotation text is edited on the canvas.
 - `Associations.cs`: HKCU registrations and Shell notification; defaults stay user-chosen.
 - `SmokeTests.cs`: production pipeline checks on an STA thread; `tests/**` is currently
