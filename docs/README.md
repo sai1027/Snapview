@@ -41,7 +41,9 @@ server, database, web UI, dependency-injection container, cloud account or telem
 Folder navigation enumerates image filenames in the selected directory; it does not
 index a library. New file activations currently create separate processes/windows.
 
-The quiet light palette and common control styles are in `App.xaml`. Layout and
+The light/dark palettes are in `Theme.cs`; common control styles use dynamic
+resources in `App.xaml`. **… → Appearance → Light / Dark** changes the UI immediately
+and saves the choice locally. Theme changes do not alter image or annotation colors. Layout and
 window chrome are in `MainWindow.xaml`. Use the existing styles and tooltips when
 adding controls; keep advanced controls contextual to the current image/tool.
 `Assets/Snapview.drawing.xml` is the native vector icon source; its small `Snapview-mark.png`

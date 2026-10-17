@@ -5,6 +5,8 @@ using System.Windows.Media.Imaging;
 
 namespace Snapview;
 
+internal sealed record TextStyleRange(int Start, int Length, Color Color, double FontSize);
+
 // Immutable values: history shares the base bitmap and snapshots these small objects.
 internal sealed record Annotation
 {
@@ -15,6 +17,7 @@ internal sealed record Annotation
     public double Stroke { get; init; } = 5;
     public string Text { get; init; } = "Text";
     public double FontSize { get; init; } = 48;
+    public TextStyleRange[] TextStyles { get; init; } = [];
     public double StretchX { get; init; } = 1;
     public double StretchY { get; init; } = 1;
     public Point Start { get; init; }
@@ -27,7 +30,40 @@ internal sealed record Annotation
             CultureInfo.CurrentUICulture, FlowDirection.LeftToRight, new Typeface("Segoe UI"),
             FontSize, new SolidColorBrush(Color), 1);
         result.MaxTextWidth = Math.Max(8, Box.Width);
+        foreach (var style in TextStyles)
+        {
+            int count = Math.Min(style.Length, Text.Length - style.Start);
+            if (style.Start < 0 || count <= 0) continue;
+            result.SetForegroundBrush(new SolidColorBrush(style.Color), style.Start, count);
+            result.SetFontSize(style.FontSize, style.Start, count);
+        }
         return result;
+    }
+    public (Color Color, double FontSize) StyleAt(int index)
+    {
+        var range = TextStyles.FirstOrDefault(s => index >= s.Start && index < s.Start + s.Length);
+        return range == null ? (Color, FontSize) : (range.Color, range.FontSize);
+    }
+    public Annotation WithTextStyle(int start, int length, Color? color = null, double? size = null)
+    {
+        int end = Math.Min(Text.Length, start + length);
+        var styles = new List<TextStyleRange>();
+        bool changed = false;
+        for (int i = 0; i < Text.Length; i++)
+        {
+            var value = StyleAt(i);
+            if (i >= start && i < end)
+            {
+                var next = (color ?? value.Color, size ?? value.FontSize);
+                changed |= next != value; value = next;
+            }
+            if (styles.LastOrDefault() is { } last && last.Color == value.Color && last.FontSize == value.FontSize)
+                styles[^1] = last with { Length = last.Length + 1 };
+            else styles.Add(new(i, 1, value.Color, value.FontSize));
+        }
+        bool all = start == 0 && end == Text.Length;
+        if (!changed && (!all || (color == null || color == Color) && (size == null || size == FontSize))) return this;
+        return this with { TextStyles = styles.ToArray(), Color = all ? color ?? Color : Color, FontSize = all ? size ?? FontSize : FontSize };
     }
     public Rect Bounds => Kind == "Text"
         ? new Rect(Box.X, Box.Y, Box.Width * StretchX, FormatText().Height * StretchY)

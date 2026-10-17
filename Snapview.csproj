@@ -6,7 +6,7 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <AssemblyName>Snapview</AssemblyName>
-    <Version>0.2.1</Version>
+    <Version>0.3.0</Version>
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
     <ApplicationIcon>Assets\Snapview.ico</ApplicationIcon>
   </PropertyGroup>

@@ -1,6 +1,7 @@
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
+using System.Windows.Documents;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Shapes;
@@ -37,7 +38,12 @@ public sealed class AnnotationEditor : Canvas
     private Point gestureStart;
     private string? gesture;
     private bool gestureCommitted, typingGroup, syncingEditor;
-    private TextBox? editor;
+    private RichTextBox? editor;
+    private Annotation? editorSnapshot;
+    internal bool IsEditingText => editor != null;
+    internal bool TextInputHasFocus => editor?.IsKeyboardFocusWithin == true;
+    internal (Color Color, double FontSize)? TextSelectionStyle => editor != null && Selected is { } text
+        ? text.StyleAt(AnnotationText.Selection(editor).Start) : null;
     private double zoom = 1;
 
     public AnnotationEditor()
@@ -66,9 +72,13 @@ public sealed class AnnotationEditor : Canvas
         if (selected != null && Selected == null) { FinishTextEditing(); selected = null; BuildChrome(); SelectionChanged?.Invoke(); }
         if (editor != null && Selected is { Kind: "Text" } text)
         {
-            syncingEditor = true;
-            if (editor.Text != text.Text) editor.Text = text.Text;
-            syncingEditor = false; PositionEditor(text);
+            if (editorSnapshot != text)
+            {
+                var selection = AnnotationText.Selection(editor);
+                syncingEditor = true; AnnotationText.Load(editor, text, selection.Start, selection.Length);
+                editorSnapshot = text; syncingEditor = false;
+            }
+            PositionEditor(text);
         }
         artwork.InvalidateVisual(); PositionChrome();
     }
@@ -93,11 +103,19 @@ public sealed class AnnotationEditor : Canvas
         RefreshScene(); Changed?.Invoke();
     }
     internal void ChangeColor(Color color)
-    { Ink = color; if (Selected is { } item) Update(item with { Color = color }); }
+    { Ink = color; if (Selected is { } item) { if (item.Kind == "Text") ChangeTextStyle(color, null); else Update(item with { Color = color }); } }
     internal void ChangeStroke(double size)
     { StrokeWidth = size; if (Selected is { Kind: not "Text" } item) Update(item with { Stroke = size }); }
     internal void ChangeFont(double size)
-    { TextSize = size; if (Selected is { Kind: "Text" } item) Update(item with { FontSize = size }); }
+    { TextSize = size; if (Selected is { Kind: "Text" }) ChangeTextStyle(null, size); }
+    private void ChangeTextStyle(Color? color, double? size)
+    {
+        if (Selected is not { Kind: "Text" } item) return;
+        var range = editor == null ? (Start: 0, Length: item.Text.Length) : AnnotationText.Selection(editor);
+        if (range.Length == 0) range = (0, item.Text.Length);
+        typingGroup = false;
+        Update(item.WithTextStyle(range.Start, range.Length, color, size));
+    }
     internal bool DeleteSelected()
     {
         if (Document == null || selected == null) return false;
@@ -259,19 +277,35 @@ public sealed class AnnotationEditor : Canvas
     private void BeginTextEditing()
     {
         if (editor != null || Selected is not { Kind: "Text" } text) return;
-        editor = new TextBox { Text = text.Text, AcceptsReturn = true, TextWrapping = TextWrapping.Wrap,
+        editor = new RichTextBox { AcceptsReturn = true, IsUndoEnabled = false, IsInactiveSelectionHighlightEnabled = true,
             Padding = new Thickness(0), BorderThickness = new Thickness(0), Background = new SolidColorBrush(Color.FromArgb(28, 120, 150, 180)),
-            FontFamily = new FontFamily("Segoe UI"), VerticalContentAlignment = VerticalAlignment.Top, MinWidth = 8, MaxLength = 5000,
+            FontFamily = new FontFamily("Segoe UI"), VerticalContentAlignment = VerticalAlignment.Top, MinWidth = 8,
             HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled, VerticalScrollBarVisibility = ScrollBarVisibility.Disabled };
+        syncingEditor = true; AnnotationText.Load(editor, text); editorSnapshot = text; syncingEditor = false;
         System.Windows.Automation.AutomationProperties.SetName(editor, "Annotation text");
         editor.TextChanged += (_, _) =>
         {
             if (syncingEditor || Selected is not { } current || editor == null) return;
-            Update(current with { Text = editor.Text }, typingGroup); typingGroup = true;
+            var next = AnnotationText.Read(editor, current);
+            if (next.Text.Length > 5000)
+            {
+                syncingEditor = true; AnnotationText.Load(editor, current, Math.Min(5000, current.Text.Length)); syncingEditor = false; return;
+            }
+            editorSnapshot = next; Update(next, typingGroup); typingGroup = true;
         };
+        editor.SelectionChanged += (_, _) => { if (!syncingEditor) SelectionChanged?.Invoke(); };
+        DataObject.AddPastingHandler(editor, (_, e) =>
+        {
+            if (editor == null) return;
+            e.CancelCommand();
+            if (e.DataObject.GetData(DataFormats.UnicodeText) is string value)
+                editor.Selection.Text = value[..Math.Min(value.Length, Math.Max(0, 5000 - AnnotationText.PlainText(editor).Length + AnnotationText.Selection(editor).Length))];
+        });
         editor.LostKeyboardFocus += (_, _) => typingGroup = false;
         editor.PreviewKeyDown += (_, e) =>
         {
+            if (Keyboard.Modifiers.HasFlag(ModifierKeys.Control) && e.Key is Key.Z or Key.Y)
+            { FinishTextEditing(); return; } // route history to the window instead of a second editor undo stack
             if (e.Key == Key.Escape || (e.Key == Key.Enter && Keyboard.Modifiers.HasFlag(ModifierKeys.Control)))
             { FinishTextEditing(); Focus(); e.Handled = true; }
         };
@@ -283,13 +317,12 @@ public sealed class AnnotationEditor : Canvas
         if (editor == null) return;
         SetLeft(editor, text.Box.X); SetTop(editor, text.Box.Y);
         editor.Width = text.Box.Width; editor.Height = text.FormatText().Height + 5;
-        editor.FontSize = text.FontSize; editor.Foreground = new SolidColorBrush(text.Color);
         editor.LayoutTransform = new ScaleTransform(text.StretchX, text.StretchY);
     }
     internal void FinishTextEditing()
     {
         if (editor == null) return;
-        var previous = editor; editor = null; Children.Remove(previous); typingGroup = false;
+        var previous = editor; editor = null; editorSnapshot = null; Children.Remove(previous); typingGroup = false;
         artwork.InvalidateVisual();
     }
     internal void EditSelectedText() { if (Selected?.Kind == "Text") BeginTextEditing(); }

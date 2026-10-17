@@ -183,6 +183,58 @@ internal static class SmokeTests
             doc.Commit(Imaging.Resize(doc.Current!, 600, 400)); Assert(doc.Annotations.Length == 0, "Raster operation did not establish its new canvas");
             doc.Undo(); Assert(doc.Annotations.Length == 1 && doc.Annotations[0].Id == text.Id && doc.BaseImage == image, "Undo did not restore editable objects");
         });
+        Check("Selected-word color and size preserve other words through undo and redo", () =>
+        {
+            var text = new Annotation { Kind = "Text", Text = "Small bright words", Color = Colors.Black, FontSize = 32, Box = new Rect(10, 20, 600, 60) };
+            var colored = text.WithTextStyle(6, 6, Colors.Red);
+            var styled = colored.WithTextStyle(6, 6, size: 64);
+            Assert(styled.Text == text.Text && styled.Id == text.Id, "Styling changed text or object identity");
+            Assert(styled.StyleAt(0) == (Colors.Black, 32d) && styled.StyleAt(13) == (Colors.Black, 32d), "Unselected words changed");
+            Assert(styled.StyleAt(7) == (Colors.Red, 64d), "Selected word did not retain both color and size");
+            var wholeColor = styled.WithTextStyle(0, styled.Text.Length, Colors.Blue);
+            Assert(wholeColor.StyleAt(7) == (Colors.Blue, 64d) && wholeColor.StyleAt(0) == (Colors.Blue, 32d), "Whole-box color discarded font differences");
+            Assert(styled.WithTextStyle(6, 6, Colors.Red) == styled, "Unchanged style created another history state");
+            var doc = new ImageDocument(); doc.Load(image, source); doc.SetAnnotations([colored]); doc.SetAnnotations([styled]);
+            doc.Undo(); Assert(doc.Annotations[0].StyleAt(7) == (Colors.Red, 32d), "Undo lost the previous word style");
+            doc.Redo(); Assert(doc.Annotations[0].StyleAt(7) == (Colors.Red, 64d), "Redo lost the word size");
+        });
+        Check("Inline rich text round trip, retained selection and editing styled text", () =>
+        {
+            var original = new Annotation { Kind = "Text", Text = "One blue word\nSecond line\n", Color = Colors.Black, FontSize = 32, Box = new Rect(0, 0, 600, 60) }
+                .WithTextStyle(4, 4, Colors.Blue, 60);
+            var editor = new System.Windows.Controls.RichTextBox();
+            AnnotationText.Load(editor, original, 4, 4);
+            Assert(AnnotationText.PlainText(editor) == original.Text, "Newlines changed when opening the editor");
+            Assert(editor.Selection.Text == "blue" && AnnotationText.Selection(editor) == (4, 4), "Word selection offsets were lost");
+            editor.Selection.ApplyPropertyValue(System.Windows.Documents.TextElement.ForegroundProperty, Brushes.Red);
+            var edited = AnnotationText.Read(editor, original);
+            Assert(edited.Text == original.Text && edited.StyleAt(4) == (Colors.Red, 60d) && edited.StyleAt(0) == (Colors.Black, 32d), "Editor applied style outside the selected word");
+            editor.Selection.Text = "NEW";
+            var replaced = AnnotationText.Read(editor, original);
+            Assert(replaced.Text == "One NEW word\nSecond line\n", "Replacing a styled word damaged surrounding text");
+            AnnotationText.Load(editor, edited, 4, 4);
+            Assert(editor.Selection.Text == "blue" && AnnotationText.Read(editor, edited).StyleAt(5) == (Colors.Red, 60d), "Re-entering text lost word styling");
+            var multiline = new System.Windows.Controls.RichTextBox();
+            multiline.Document.Blocks.Clear();
+            multiline.Document.Blocks.Add(new System.Windows.Documents.Paragraph(new System.Windows.Documents.Run("First")));
+            multiline.Document.Blocks.Add(new System.Windows.Documents.Paragraph());
+            multiline.Document.Blocks.Add(new System.Windows.Documents.Paragraph(new System.Windows.Documents.Run("Third")));
+            Assert(AnnotationText.Read(multiline, original).Text == "First\n\nThird", "Paragraph editing lost blank lines");
+        });
+        Check("Mixed text styles survive image export", () =>
+        {
+            var text = new Annotation { Kind = "Text", Text = "RED BLACK", Color = Colors.Black, FontSize = 32, Box = new Rect(40, 40, 900, 80) }
+                .WithTextStyle(0, 3, Colors.Red, 64);
+            var visual = new DrawingVisual(); using (var dc = visual.RenderOpen()) dc.DrawRectangle(Brushes.White, null, new Rect(0, 0, 1200, 800));
+            var doc = new ImageDocument(); doc.Load(Imaging.Render(visual, 1200, 800), source); doc.SetAnnotations([text]);
+            string path = Path.Combine(directory, "styled-words.png"); Imaging.Save(doc.Current!, path);
+            var saved = Imaging.Load(path); byte[] pixels = new byte[1200 * 800 * 4]; saved.CopyPixels(pixels, 1200 * 4, 0);
+            int red = 0, black = 0;
+            for (int i = 0; i < pixels.Length; i += 4)
+            { if (pixels[i + 2] > 200 && pixels[i + 1] < 30 && pixels[i] < 30) red++; if (pixels[i] < 30 && pixels[i + 1] < 30 && pixels[i + 2] < 30) black++; }
+            Assert(red > 200 && black > 100, "Export did not render both word colors");
+            doc.MarkSaved(path); Assert(doc.Annotations[0].StyleAt(0) == (Colors.Red, 64d), "Save discarded the editable styled word");
+        });
         // Optional external codec fixtures, fetched by scripts/test.ps1. HEIC encoding is
         // deliberately unavailable in the Windows codec bundle, so use decoder fixtures.
         if (Environment.GetEnvironmentVariable("SNAPVIEW_CODEC_FIXTURES") is string fixtures)

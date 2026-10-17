@@ -62,6 +62,8 @@ public partial class MainWindow : Window
         EditTools.IsEnabled = ZoomTools.IsEnabled = SaveButton.IsEnabled = InfoButton.IsEnabled = loaded && !busy;
         UndoButton.IsEnabled = document.CanUndo && !busy;
         RedoButton.IsEnabled = document.CanRedo && !busy;
+        CopyPathButton.IsEnabled = document.Path != null && !busy;
+        CopyPathButton.ToolTip = document.Path == null ? "No file path for a clipboard image" : document.Path + "\nClick to copy image path";
         Annotations.IsEnabled = !busy;
         Viewer.Visibility = loaded ? Visibility.Visible : Visibility.Collapsed;
         Welcome.Visibility = loaded ? Visibility.Collapsed : Visibility.Visible;
@@ -204,12 +206,12 @@ public partial class MainWindow : Window
         Annotations.Ink = ink; Annotations.StrokeWidth = InkWidth;
         Overlay.Visibility = value == "Crop" ? Visibility.Visible : Visibility.Collapsed;
         AnnotationHint.Visibility = value == "Crop" ? Visibility.Collapsed : Visibility.Visible;
-        AddTextButton.Background = value == "Text" ? new SolidColorBrush(Color.FromRgb(218, 228, 213)) : Brushes.Transparent;
+        AddTextButton.SetResourceReference(BackgroundProperty, value == "Text" ? "Selected" : "TransparentBrush");
         Overlay.Cursor = value == "View" ? Cursors.Arrow : value == "Text" ? Cursors.IBeam : Cursors.Cross;
         DrawingTools.Visibility = value == "Crop" ? Visibility.Collapsed : Visibility.Visible;
         CropHint.Visibility = ApplyCropButton.Visibility = value == "Crop" ? Visibility.Visible : Visibility.Collapsed;
         foreach (var button in DrawingTools.Children.OfType<Button>().Where(b => b.Tag is string s && !s.StartsWith('#')))
-            button.Background = (string)button.Tag == value ? new SolidColorBrush(Color.FromRgb(218, 228, 213)) : Brushes.Transparent;
+            button.SetResourceReference(BackgroundProperty, (string)button.Tag == value ? "Selected" : "TransparentBrush");
         AnnotationSelectionChanged();
     }
     private void CropClick(object sender, RoutedEventArgs e)
@@ -257,11 +259,12 @@ public partial class MainWindow : Window
         {
             if (tool == "View") { tool = "Select"; Annotations.SetTool("Select"); }
             MarkupBar.Visibility = Visibility.Visible;
-            ink = selected.Color; Annotations.Ink = ink;
-            if (text) FontSizeInput.Text = selected.FontSize.ToString("0.#", CultureInfo.CurrentCulture);
-            else foreach (ComboBoxItem item in StrokeSize.Items) if (item.Content.ToString() == selected.Stroke.ToString(CultureInfo.InvariantCulture)) StrokeSize.SelectedItem = item;
+            var style = Annotations.TextSelectionStyle;
+            ink = style?.Color ?? selected.Color; Annotations.Ink = ink;
+            if (text && !FontSizeInput.IsKeyboardFocusWithin) FontSizeInput.Text = (style?.FontSize ?? selected.FontSize).ToString("0.#", CultureInfo.CurrentCulture);
+            else if (!text) foreach (ComboBoxItem item in StrokeSize.Items) if (item.Content.ToString() == selected.Stroke.ToString(CultureInfo.InvariantCulture)) StrokeSize.SelectedItem = item;
         }
-        AnnotationHint.Text = text ? "Type directly · drag Move to reposition · side handles wrap · corners stretch/squash · double-click to edit"
+        AnnotationHint.Text = text ? "Select words to change their color or size · no text selection styles the whole box · drag Move to reposition"
             : selected?.Kind == "Arrow" ? "Drag either end handle to shorten or redirect the arrow. Drag the line or Move handle to reposition."
             : "Click an object to select it. Drag to move; use handles to resize. Delete removes it; Ctrl+Z undoes.";
         SyncInkSwatches(); syncingAnnotationControls = false;
@@ -402,9 +405,14 @@ public partial class MainWindow : Window
     }
     private void AddInfo(string title, string value)
     {
-        InfoContents.Children.Add(new TextBlock { Text = title.ToUpperInvariant(), FontSize = 10, Foreground = new SolidColorBrush(Color.FromRgb(132, 143, 125)), Margin = new Thickness(0, 17, 0, 5) });
+        var heading = new TextBlock { Text = title.ToUpperInvariant(), FontSize = 10, Margin = new Thickness(0, 17, 0, 5) };
+        heading.SetResourceReference(TextBlock.ForegroundProperty, "Muted"); InfoContents.Children.Add(heading);
         InfoContents.Children.Add(new TextBlock { Text = value, FontSize = 13, TextWrapping = TextWrapping.Wrap, IsHitTestVisible = true, ToolTip = value });
     }
+    private void CopyPathClick(object sender, RoutedEventArgs e)
+    { if (!busy && document.Path is string path) CopyText(path, "Image path copied"); }
+    private void CopyText(string text, string message)
+    { try { Clipboard.SetText(text); Toast(message); } catch (Exception ex) { Error(ex); } }
     private void PopulateInfo()
     {
         InfoContents.Children.Clear(); var image = document.BaseImage; if (image == null) return;
@@ -422,6 +430,9 @@ public partial class MainWindow : Window
             }
             catch (IOException) { AddInfo("File", "Source file is no longer available"); }
             AddInfo("Location on disk", document.Path);
+            var copyPath = new Button { Content = "Copy image path", HorizontalAlignment = HorizontalAlignment.Left, Margin = new Thickness(0, 8, 0, 0), ToolTip = "Copy the full file path to the clipboard" };
+            copyPath.SetResourceReference(BackgroundProperty, "SoftButton"); copyPath.Click += CopyPathClick;
+            InfoContents.Children.Add(copyPath);
         }
         if (document.Dirty) AddInfo("Edits", "Unsaved changes. File size updates after saving.");
         if (metadata != null)
@@ -430,13 +441,18 @@ public partial class MainWindow : Window
             if (metadata.Latitude is double lat && metadata.Longitude is double lon)
             {
                 AddInfo("Photo location · source file", $"{lat:0.00000}, {lon:0.00000}");
-                var button = new Button { Content = "View on map ↗", HorizontalAlignment = HorizontalAlignment.Left, Background = new SolidColorBrush(Color.FromRgb(232, 238, 226)), Margin = new Thickness(0, 12, 0, 0) };
+                var button = new Button { Content = "View on map ↗", HorizontalAlignment = HorizontalAlignment.Left, Margin = new Thickness(0, 12, 0, 0) };
+                button.SetResourceReference(BackgroundProperty, "SoftButton");
                 button.ToolTip = "Open OpenStreetMap in your browser with these coordinates";
                 button.Click += (_, _) =>
                 {
                     try { Process.Start(new ProcessStartInfo(FormattableString.Invariant($"https://www.openstreetmap.org/?mlat={lat}&mlon={lon}#map=15/{lat}/{lon}")) { UseShellExecute = true }); } catch (Exception ex) { Error(ex); }
                 };
                 InfoContents.Children.Add(button);
+                var copyLocation = new Button { Content = "Copy coordinates", HorizontalAlignment = HorizontalAlignment.Left, Margin = new Thickness(0, 8, 0, 0) };
+                copyLocation.SetResourceReference(BackgroundProperty, "SoftButton");
+                copyLocation.Click += (_, _) => CopyText(FormattableString.Invariant($"{lat:0.00000}, {lon:0.00000}"), "Photo coordinates copied");
+                InfoContents.Children.Add(copyLocation);
             }
             else AddInfo("Photo location", "No location data in this file");
         }
@@ -446,6 +462,14 @@ public partial class MainWindow : Window
     private void MoreClick(object sender, RoutedEventArgs e)
     {
         var menu = new ContextMenu();
+        var appearance = new MenuItem { Header = "Appearance" };
+        foreach (bool dark in new[] { false, true })
+        {
+            var item = new MenuItem { Header = dark ? "Dark" : "Light", IsCheckable = true, IsChecked = Theme.IsDark == dark };
+            item.Click += (_, _) => { try { Theme.Apply(dark, save: true); } catch (Exception ex) { Error(ex); } };
+            appearance.Items.Add(item);
+        }
+        menu.Items.Add(appearance); menu.Items.Add(new Separator());
         void Item(string title, RoutedEventHandler handler, bool enabled = true)
         { var item = new MenuItem { Header = title, IsEnabled = enabled }; item.Click += handler; menu.Items.Add(item); }
         Item("Save                         Ctrl+S", SaveClick, document.BaseImage != null && !busy);
@@ -497,8 +521,10 @@ public partial class MainWindow : Window
     private void WindowKeyDown(object sender, KeyEventArgs e)
     {
         if (busy) return;
-        if (e.OriginalSource is TextBox)
+        if (e.OriginalSource is TextBox || Annotations.TextInputHasFocus)
         {
+            if (Annotations.TextInputHasFocus && Keyboard.Modifiers.HasFlag(ModifierKeys.Control) && e.Key is Key.Z or Key.Y)
+            { if (e.Key == Key.Y || Keyboard.Modifiers.HasFlag(ModifierKeys.Shift)) Redo(); else UndoClick(this, e); e.Handled = true; return; }
             if (e.Key == Key.S && Keyboard.Modifiers.HasFlag(ModifierKeys.Control))
             { Annotations.FinishTextEditing(); if (Keyboard.Modifiers.HasFlag(ModifierKeys.Shift)) SaveCopyClick(this, e); else SaveClick(this, e); e.Handled = true; }
             return;

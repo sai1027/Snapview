@@ -20,6 +20,7 @@ public partial class App : Application
             catch (Exception ex) { File.WriteAllText(Path.Combine(AppContext.BaseDirectory, "self-test-error.txt"), ex.ToString()); Shutdown(1); }
             return;
         }
+        Theme.Load();
         var window = new MainWindow();
         MainWindow = window;
         window.Show();

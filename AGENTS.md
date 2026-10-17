@@ -17,6 +17,8 @@ are outside the current scope unless explicitly requested.
 - `Imaging.cs`: `ImageDocument`, WIC/Magick codecs, transforms, metadata, `Originals`.
 - `Annotations.cs`: immutable annotation geometry/text, scene snapshots, lazy export compositing.
 - `AnnotationEditor.cs`: inline text input, object hit-testing, selection handles and grouped drags.
+- `AnnotationText.cs`: RichTextBox/FlowDocument conversion, text-selection offsets, immutable color/font runs.
+- `Theme.cs`: live light/dark palette and local appearance preference; use dynamic resources for UI colors.
 - `CropPreview.cs`: UI-only outside shading, crop dimensions/ratio and shared pixel rounding.
 - `WindowBounds.cs`: monitor work-area bounds for the borderless maximized window.
 - `Dialogs.cs`: resize and OCR copy dialogs; annotation text is edited on the canvas.
@@ -59,8 +61,13 @@ failure exits 1 and writes `self-test-error.txt` beside the executable.
   keeps up to 150 states / about 192 MiB with a one-state floor; other buffers add memory.
 - Use `BaseImage` for display/dimensions and the editor for live layers. `Current`
   lazily rasterizes the scene for export/OCR/copy; never invoke it on every pointer move.
-- Selection borders, move handles and the inline TextBox are UI-only. Export draws
+- Selection borders, move handles and the inline RichTextBox are UI-only. Export draws
   annotation models, not editor visuals. Side text handles reflow; corners stretch.
+- TextStyles contain immutable character ranges (UTF-16 offsets, color, font size).
+  Keep editor/export rendering and selection offsets consistent across newlines.
+  Highlighted text alone receives toolbar color/size changes; an empty selection
+  styles the whole box. Preserve other properties and surrounding words; plain-text
+  paste only, 5,000-character limit, shared scene undo (no separate rich-editor history).
 - Save via temporary file + replacement. Capture original bytes before overwrite;
   update recovery hash only after save. Preserve unsaved-change cancellation.
 - Exports omit source camera/GPS metadata; JPEG/BMP flatten alpha to white. Metadata
@@ -81,3 +88,8 @@ UI at minimum size and normal/maximized sizes; verify relevant shortcuts and und
 For packaging changes verify required files in a fresh publish folder. Docs-only
 changes need link/accuracy checks, not a full image test run. Report what changed,
 checks run, and any remaining limitations. Preserve unrelated user work.
+
+`.local/` is ignored personal task material; do not package it. Appearance is saved
+in `%LOCALAPPDATA%\Snapview\appearance.json`; images/annotation colors never follow
+the UI theme. Title filename and Image details can copy the current file path;
+clipboard images have no path, and photo coordinates have a separate copy action.

@@ -78,14 +78,14 @@ size/annotation bugs. Watch `document.Dirty`, history state, `tool`, `busy` and
 
 This is an in-app smoke/integration runner, not xUnit/NUnit or `dotnet test`.
 The WPF app starts on an STA thread, runs `SmokeTests.Run`, writes results and exits
-without opening the main window. The base suite currently has **17** checks;
-the optional fixtures add one combined HEIC/AVIF check for **18** total.
+without opening the main window. The base suite currently has **20** checks;
+the optional fixtures add one combined HEIC/AVIF check for **21** total.
 
 | Area | Assertions |
 | --- | --- |
 | Encoding/decoding | PNG round trip and JPEG/WebP/BMP/TIFF export dimensions |
 | Edits | Resize/crop/rotate dimensions, all eight orientation transforms, 96-DPI normalization |
-| State / layers | Undo/redo, saved scene identity, grouped gestures, style changes, editable export, layer restoration after raster operations |
+| State / layers | Undo/redo, saved scene identity, grouped gestures, selected-word color/size, multiline rich-text round trip, mixed-style export, layer restoration after raster operations |
 | Recovery | Original bytes survive overwrite; external file changes invalidate the backup lookup |
 | Metadata | Missing GPS, synthetic GPS coordinates, source EXIF orientation, GPS omitted on export |
 | OCR | Bundled English model recognizes generated sample text locally |
@@ -123,11 +123,14 @@ Check changed interactions at the 850 × 590 minimum, normal size and maximized:
 
 1. Open/drop/paste, folder navigation and unsaved-change save/discard/cancel.
 2. Fit/actual size, zoom/pan, and aligned crop/annotations after zoom or rotation.
-3. Type inline; reflow/stretch/move/recolor text; resize shapes; shorten either arrow end; verify the active color ring follows selection/undo; test Undo and Redo buttons.
+3. Type inline; highlight one word, change its color and font size via the toolbar, verify surrounding text is unchanged, undo/redo and re-enter editing. Check newlines, wrapping/stretching and plain-text paste. Resize shapes, shorten either arrow end, and check the selected color ring.
 4. Draw crops in both directions and near image edges; check outside dimming, live pixel dimensions/ratio, Apply, undo and cancel. Verify the bottom status bar in maximized view and after restoring.
 5. Save copy in a different format; overwrite a test file; reopen and Revert.
 6. Source-vs-canvas details, GPS/no-GPS states, OCR selection/copy and busy controls.
 7. Keyboard focus, relevant shortcuts/tooltips and the original empty state.
+8. Switch Light/Dark from Appearance, inspect menus/inputs/details and restart to
+   verify the choice persists. Copy the title filename and details path into a
+   disposable field; verify clipboard-only images cannot copy a nonexistent path.
 
 Do not change personal Windows defaults or remove recovery data just to validate
 a patch. Test installation/association behavior in a disposable Windows account or

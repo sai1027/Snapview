@@ -111,6 +111,7 @@ currently maintains a separate list that must be updated when that list changes.
 | --- | --- |
 | `%LOCALAPPDATA%\Programs\Snapview` | Per-user installed executable, dependencies, docs and notices |
 | `%LOCALAPPDATA%\Snapview\Originals` | Original image bytes and recovery JSON; retained across sessions/uninstall |
+| `%LOCALAPPDATA%\Snapview\appearance.json` | Saved light/dark preference; retained across sessions/uninstall |
 | Output folder's `test-output` | Generated only when `--self-test` is run there |
 
 Run `artifacts\uninstall.ps1` from the generated layout after closing Snapview.

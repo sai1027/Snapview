@@ -11,6 +11,8 @@
 | `Imaging.cs` | `ImageDocument`, codec/transform helpers, metadata extraction and persistent original recovery |
 | `Annotations.cs` | Immutable object geometry/text, scene snapshots and lazy compositing |
 | `AnnotationEditor.cs` | Inline text, object hit-testing, move/resize/end handles and gesture grouping |
+| `AnnotationText.cs` | Rich editor/model conversion and newline-aware selection offsets |
+| `Theme.cs` | Light/dark resource palette, native dialog caption theme and saved appearance |
 | `CropPreview.cs` | UI-only crop shading and live dimensions/ratio; shared pixel bounds for the actual crop |
 | `WindowBounds.cs` | Native monitor work-area handling for borderless maximization |
 | `Dialogs.cs` | Dimension entry/proportion locking and extracted-text selection/copy |
@@ -50,6 +52,7 @@ OCR and clipboard copying; do not read it on every pointer move. Composite cache
 are released when moving scenes into history.
 
 Object records hold an ID, kind, box, color, stroke width, text/font/stretch values,
+immutable `TextStyleRange` arrays (UTF-16 start/length, color and font size),
 arrow endpoints and freehand points as appropriate. Replace records/arrays instead
 of mutating them. `SetAnnotations` commits scene edits; subsequent updates within
 the same drag/typing group coalesce into that gesture's undo step. A saved scene
@@ -63,13 +66,20 @@ and places UI-only text editing/selection controls on its canvas. The separate
 `Overlay` canvas is visible only for crop selection. All coordinates are image
 pixels, under the common display transform. Selection handles maintain a roughly
 constant screen size as zoom changes. Export draws model objects through
-`ImageScene.Composite`; it never captures the editor TextBox, handles or borders.
+`ImageScene.Composite`; it never captures the editor RichTextBox, handles or borders.
 
-Text is entered directly in an on-image TextBox. Esc or Ctrl+Enter finishes typing;
+Text is entered directly in an on-image RichTextBox. Esc or Ctrl+Enter finishes typing;
 double-click or F2 re-enters it. The blue Move handle repositions it. Left/right
 handles change the wrap width while preserving glyph proportions. Corners and
 top/bottom handles stretch the letters independently. Color/font controls update
-the selected object; the input's font value is measured in image pixels.
+highlighted characters while editing. Without a highlighted range they style the
+whole object, preserving other color/font differences. The font value is measured
+in image pixels. The editor retains its selection when toolbar controls take focus.
+`AnnotationText` converts WPF runs into immutable ranges and restores the selection
+when styles/history refresh. Newlines are normalized to LF; WPF's mandatory final
+paragraph marker is excluded. Paste accepts plain text and the 5,000-character
+limit remains enforced. The editor's own undo stack is disabled in favor of scene
+history. Export applies the ranges to `FormattedText`, including mixed sizes/colors.
 
 Pen strokes, rectangles and ellipses can be selected, moved, recolored and resized.
 Arrow head/tail handles independently change direction/length; dragging the line
@@ -146,6 +156,11 @@ the session is replaced/closed. There is no recovery quota or automatic cleanup.
 
 ## Metadata, GPS and OCR
 
+The title filename is a chrome-aware button that copies the current full file path
+on a single click. Image details also offers Copy image path; clipboard-only images
+have no file path. GPS coordinates have a separate Copy coordinates action. Copy
+actions stay local and report clipboard errors without changing the image.
+
 `MetadataReader` uses MetadataExtractor to select camera tags and parse GPS
 latitude/longitude. The panel labels source-file properties separately from current
 canvas dimensions. A map button appears only when coordinates exist and opens an
@@ -156,6 +171,16 @@ pixels, encodes PNG, and starts a short-lived Tesseract engine in `LstmOnly` mod
 with the bundled English model. Native objects are disposed after recognition.
 The result opens in a selectable/copyable dialog. No OCR engine runs at startup;
 there is no text overlay selection, model download or additional-language picker.
+
+## Appearance
+
+`Theme.Load` reads a boolean from `%LOCALAPPDATA%\Snapview\appearance.json`, with
+Light as the default/fallback. **… → Appearance → Light / Dark** replaces semantic
+brush resources immediately and saves the preference. UI brushes must use
+`DynamicResource` / `SetResourceReference`, including contextual controls, menus
+and input fields. Rich annotation text and image pixels deliberately keep their
+own colors. Owned WPF dialogs request dark native captions where Windows supports
+them; Windows file pickers and system message boxes follow Windows' own appearance.
 
 ## Extension boundaries
 

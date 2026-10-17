@@ -39,11 +39,14 @@ Snapview registers its capabilities under the current user's registry keys. It d
 | Rotate | `R`, clockwise in 90° steps |
 | Annotate | Markup: pen, rectangle, ellipse, arrow, text; click an object to move, resize or recolor it |
 | Add text | Add text or `T`, click the image and type directly; font size and color are in the markup bar |
+| Style selected words | Highlight text, then choose a color or font size; only the selection changes. No highlighted text styles the whole box |
 | Edit text layout | Drag Move to reposition; side handles change wrapping; corners stretch/squash; double-click or `F2` edits text |
 | Edit arrow | Drag the head/tail handles independently to redirect or shorten it |
 | Select / remove | `V` selects; Delete removes the selected object; arrow keys nudge (Shift = 10 pixels) |
 | Extract text | Extract text button with scan icon or `Ctrl+Shift+C`; select or copy recognized text |
 | Details | `Ctrl+I`: file size, format, resolution, camera EXIF and GPS when present |
+| Copy path | Click the title-bar filename once, or Copy image path in Image details; GPS details can also copy coordinates |
+| Appearance | … → Appearance → Light / Dark; your choice is remembered |
 | Map | View on map opens the source coordinates in OpenStreetMap in your browser |
 | Save | `Ctrl+S` replaces supported files; Save copy or `Ctrl+Shift+S` converts/exports |
 | Undo / redo | Toolbar arrows; `Ctrl+Z` / `Ctrl+Y` (also `Ctrl+Shift+Z` for redo) |

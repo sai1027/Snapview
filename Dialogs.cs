@@ -8,9 +8,11 @@ internal static class Dialogs
     public static Window Create(Window owner, string title, string description, double width = 420)
     {
         var window = new Window { Owner = owner, Title = title, Width = width, SizeToContent = SizeToContent.Height, ResizeMode = ResizeMode.NoResize, WindowStartupLocation = WindowStartupLocation.CenterOwner, ShowInTaskbar = false, MaxHeight = 650 };
+        window.SourceInitialized += (_, _) => Theme.UpdateCaption(window);
         var panel = new StackPanel { Margin = new Thickness(26) };
         panel.Children.Add(new TextBlock { Text = title, FontSize = 21, FontWeight = FontWeights.SemiBold, Margin = new Thickness(0, 0, 0, 10) });
-        panel.Children.Add(new TextBlock { Text = description, TextWrapping = TextWrapping.Wrap, Foreground = System.Windows.Media.Brushes.Gray, Margin = new Thickness(0, 0, 0, 22) });
+        var hint = new TextBlock { Text = description, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 0, 0, 22) };
+        hint.SetResourceReference(TextBlock.ForegroundProperty, "Muted"); panel.Children.Add(hint);
         window.Content = panel; return window;
     }
     public static Button Action(Window window, string text, Action action)
