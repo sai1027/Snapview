@@ -1,0 +1,14 @@
+<DrawingImage xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation">
+  <DrawingImage.Drawing><DrawingGroup>
+    <GeometryDrawing>
+      <GeometryDrawing.Brush><LinearGradientBrush StartPoint="0,0" EndPoint="1,1"><GradientStop Color="#426AF0" Offset="0"/><GradientStop Color="#6A45C4" Offset="1"/></LinearGradientBrush></GeometryDrawing.Brush>
+      <GeometryDrawing.Geometry><RectangleGeometry Rect="0,0,256,256" RadiusX="50" RadiusY="50"/></GeometryDrawing.Geometry>
+    </GeometryDrawing>
+    <GeometryDrawing Brush="#FFFFFF"><GeometryDrawing.Geometry><RectangleGeometry Rect="43,54,170,148" RadiusX="17" RadiusY="17"/></GeometryDrawing.Geometry></GeometryDrawing>
+    <GeometryDrawing Brush="#B5EAFE"><GeometryDrawing.Geometry><RectangleGeometry Rect="56,67,144,121" RadiusX="7" RadiusY="7"/></GeometryDrawing.Geometry></GeometryDrawing>
+    <GeometryDrawing Brush="#FFC445"><GeometryDrawing.Geometry><EllipseGeometry Center="164,99" RadiusX="17" RadiusY="17"/></GeometryDrawing.Geometry></GeometryDrawing>
+    <GeometryDrawing Brush="#24BA91" Geometry="M56,181 L106,112 L157,181 Z"/>
+    <GeometryDrawing Brush="#137D7F" Geometry="M105,188 L157,127 L200,179 L200,188 Z"/>
+    <GeometryDrawing Brush="#24BA91" Geometry="M56,178 L83,176 L120,188 L56,188 Z"/>
+  </DrawingGroup></DrawingImage.Drawing>
+</DrawingImage>
