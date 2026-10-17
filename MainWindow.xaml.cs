@@ -5,6 +5,7 @@ using System.IO;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
@@ -15,7 +16,12 @@ namespace Snapview;
 public partial class MainWindow : Window
 {
     private readonly ImageDocument document = new();
+    private readonly RenameHistory renameHistory = new();
     private readonly DispatcherTimer toastTimer = new() { Interval = TimeSpan.FromSeconds(5) };
+    private readonly DispatcherTimer titleClickTimer = new();
+    private string? pendingTitlePath;
+    private string? renamePath;
+    private bool finishingRename;
     private string tool = "View";
     private Color ink = Colors.White;
     private bool fit = true, busy, drawing, panning;
@@ -35,10 +41,18 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
         WindowBounds.Attach(this);
+        SourceInitialized += (_, _) => HwndSource.FromHwnd(new WindowInteropHelper(this).Handle)?.AddHook(WindowMessage);
         Annotations.Document = document;
-        Annotations.Changed += () => Refresh();
+        Annotations.Changed += () => { renameHistory.ClearRedo(); Refresh(); };
         Annotations.SelectionChanged += AnnotationSelectionChanged;
         toastTimer.Tick += (_, _) => { ToastBox.Visibility = Visibility.Collapsed; toastTimer.Stop(); };
+        titleClickTimer.Interval = TimeSpan.FromMilliseconds(FileActions.GetDoubleClickTime());
+        titleClickTimer.Tick += (_, _) =>
+        {
+            titleClickTimer.Stop();
+            if (!busy && pendingTitlePath != null && document.Path == pendingTitlePath) CopyText(pendingTitlePath, "Image path copied");
+            pendingTitlePath = null;
+        };
         Viewer.PreviewMouseDown += PanDown;
         Viewer.PreviewMouseMove += PanMove;
         Viewer.PreviewMouseUp += PanUp;
@@ -60,14 +74,22 @@ public partial class MainWindow : Window
         var image = document.BaseImage;
         bool loaded = image != null;
         EditTools.IsEnabled = ZoomTools.IsEnabled = SaveButton.IsEnabled = InfoButton.IsEnabled = loaded && !busy;
-        UndoButton.IsEnabled = document.CanUndo && !busy;
-        RedoButton.IsEnabled = document.CanRedo && !busy;
+        UndoButton.IsEnabled = (document.CanUndo || renameHistory.CanUndo(document)) && !busy;
+        RedoButton.IsEnabled = (document.CanRedo || renameHistory.CanRedo(document)) && !busy;
         CopyPathButton.IsEnabled = document.Path != null && !busy;
-        CopyPathButton.ToolTip = document.Path == null ? "No file path for a clipboard image" : document.Path + "\nClick to copy image path";
+        DeleteImageButton.IsEnabled = document.Path != null && loaded && !busy;
+        CopyPathButton.ToolTip = !loaded ? "Open an image to copy or rename its file" : document.Path == null ? "No file path for a clipboard image" : document.Path + "\nClick to copy path · double-click to rename";
         Annotations.IsEnabled = !busy;
         Viewer.Visibility = loaded ? Visibility.Visible : Visibility.Collapsed;
         Welcome.Visibility = loaded ? Visibility.Collapsed : Visibility.Visible;
-        if (image == null) return;
+        if (image == null)
+        {
+            Photo.Source = null; Annotations.RefreshScene();
+            Title = "Snapview"; TitleLabel.Text = "A clearer view"; FileStatus.Text = "Just you and your images";
+            PositionLabel.Text = "LOCAL. SIMPLE. YOURS."; ZoomLabel.Content = "100%";
+            PrevButton.Visibility = NextButton.Visibility = Visibility.Collapsed;
+            return;
+        }
         Photo.Source = image;
         ImageHost.Width = Overlay.Width = Photo.Width = image.PixelWidth;
         ImageHost.Height = Overlay.Height = Photo.Height = image.PixelHeight;
@@ -111,7 +133,7 @@ public partial class MainWindow : Window
         {
             var fullPath = System.IO.Path.GetFullPath(path);
             var image = await Task.Run(() => Imaging.Load(fullPath));
-            document.Load(image, fullPath); metadata = null; metadataRevision++;
+            document.Load(image, fullPath); renameHistory.Clear(); metadata = null; metadataRevision++;
             SetTool("View"); MarkupBar.Visibility = Visibility.Collapsed; Overlay.Children.Clear();
             var directory = System.IO.Path.GetDirectoryName(fullPath)!;
             if (!string.Equals(folder, directory, StringComparison.OrdinalIgnoreCase))
@@ -139,7 +161,7 @@ public partial class MainWindow : Window
     { e.Effects = !busy && e.Data.GetDataPresent(DataFormats.FileDrop) ? DragDropEffects.Copy : DragDropEffects.None; e.Handled = true; }
     private void WindowDrop(object sender, DragEventArgs e)
     { if (e.Data.GetData(DataFormats.FileDrop) is string[] { Length: > 0 } files) OpenPath(files[0]); }
-    private void WindowClosing(object? sender, CancelEventArgs e) { if (busy || !ConfirmLeave()) e.Cancel = true; }
+    private void WindowClosing(object? sender, CancelEventArgs e) { titleClickTimer.Stop(); if (!FinishRename() || busy || !ConfirmLeave()) e.Cancel = true; }
     private void MinimizeClick(object sender, RoutedEventArgs e) => WindowState = WindowState.Minimized;
     private void MaximizeClick(object sender, RoutedEventArgs e) => WindowState = WindowState == WindowState.Maximized ? WindowState.Normal : WindowState.Maximized;
     private void CloseClick(object sender, RoutedEventArgs e) => Close();
@@ -187,10 +209,20 @@ public partial class MainWindow : Window
     { if (panning) { panning = false; Viewer.ReleaseMouseCapture(); Viewer.Cursor = Cursors.Arrow; e.Handled = true; } }
 
     private void Commit(BitmapSource bitmap, bool resetFit = false)
-    { Overlay.Children.Clear(); crop = null; document.Commit(bitmap); Refresh(resetFit); }
-    private void UndoClick(object sender, RoutedEventArgs e) { if (busy) return; Annotations.CancelInteraction(); Annotations.FinishTextEditing(); CancelGesture(); document.Undo(); Refresh(); }
+    { Overlay.Children.Clear(); crop = null; renameHistory.ClearRedo(); document.Commit(bitmap); Refresh(resetFit); }
+    private void UndoClick(object sender, RoutedEventArgs e)
+    {
+        if (busy) return;
+        Annotations.CancelInteraction(); Annotations.FinishTextEditing(); CancelGesture();
+        if (renameHistory.CanUndo(document)) UndoRename(false); else { document.Undo(); Refresh(); }
+    }
     private void RedoClick(object sender, RoutedEventArgs e) => Redo();
-    private void Redo() { if (busy) return; Annotations.CancelInteraction(); Annotations.FinishTextEditing(); CancelGesture(); document.Redo(); Refresh(); }
+    private void Redo()
+    {
+        if (busy) return;
+        Annotations.CancelInteraction(); Annotations.FinishTextEditing(); CancelGesture();
+        if (renameHistory.CanRedo(document)) UndoRename(true); else { document.Redo(); Refresh(); }
+    }
     private void RotateClick(object sender, RoutedEventArgs e)
     { if (document.BaseImage != null && !busy) { Annotations.FinishTextEditing(); CancelGesture(); Commit(Imaging.Normalize(Imaging.Orient(document.Current!, 6)), true); } }
     private void ResizeClick(object sender, RoutedEventArgs e)
@@ -253,6 +285,10 @@ public partial class MainWindow : Window
         var selected = Annotations.Selected;
         bool text = selected?.Kind == "Text" || (selected == null && tool == "Text");
         FontLabel.Visibility = FontSizeInput.Visibility = text ? Visibility.Visible : Visibility.Collapsed;
+        BoldButton.Visibility = ItalicButton.Visibility = text ? Visibility.Visible : Visibility.Collapsed;
+        var textStyle = Annotations.TextSelectionStyle;
+        BoldButton.IsChecked = textStyle?.Bold ?? selected?.Bold ?? false;
+        ItalicButton.IsChecked = textStyle?.Italic ?? selected?.Italic ?? false;
         StrokeLabel.Visibility = StrokeSize.Visibility = text ? Visibility.Collapsed : Visibility.Visible;
         DeleteAnnotationButton.IsEnabled = selected != null;
         if (selected != null)
@@ -272,6 +308,8 @@ public partial class MainWindow : Window
     private void StrokeChanged(object sender, SelectionChangedEventArgs e)
     { if (!syncingAnnotationControls && Annotations?.Document != null) Annotations.ChangeStroke(InkWidth); }
     private void FontSizeChanged(object sender, KeyboardFocusChangedEventArgs e) => ApplyFontSize();
+    private void BoldClick(object sender, RoutedEventArgs e) { if (!busy) Annotations.ChangeEmphasis(bold: BoldButton.IsChecked == true); }
+    private void ItalicClick(object sender, RoutedEventArgs e) { if (!busy) Annotations.ChangeEmphasis(italic: ItalicButton.IsChecked == true); }
     private void FontSizeKeyDown(object sender, KeyEventArgs e)
     { if (e.Key == Key.Enter) { ApplyFontSize(); e.Handled = true; } }
     private void ApplyFontSize()
@@ -341,6 +379,7 @@ public partial class MainWindow : Window
                 try { Originals.Record(path, backup); }
                 catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { recoveryIndexed = false; }
             }
+            if (document.Path != path) renameHistory.Clear();
             document.MarkSaved(path); metadata = null; metadataRevision++;
             if (!siblings.Contains(path, StringComparer.OrdinalIgnoreCase)) { siblings = [path]; folder = null; }
             Refresh();
@@ -411,6 +450,110 @@ public partial class MainWindow : Window
     }
     private void CopyPathClick(object sender, RoutedEventArgs e)
     { if (!busy && document.Path is string path) CopyText(path, "Image path copied"); }
+    private void TitleClick(object sender, RoutedEventArgs e)
+    {
+        if (busy || document.Path == null) return;
+        pendingTitlePath = document.Path; titleClickTimer.Stop(); titleClickTimer.Start();
+    }
+    private void TitleMouseDown(object sender, MouseButtonEventArgs e)
+    {
+        if (e.ClickCount != 2) return;
+        titleClickTimer.Stop(); pendingTitlePath = null; e.Handled = true;
+        RenameImage();
+    }
+    private void RenameImage()
+    {
+        if (busy || document.Path is not string path) return;
+        Annotations.FinishTextEditing();
+        renamePath = path;
+        RenameInput.IsUndoEnabled = false;
+        RenameInput.Text = System.IO.Path.GetFileNameWithoutExtension(path);
+        RenameInput.IsUndoEnabled = true;
+        RenameInput.Width = Math.Clamp(TitleLabel.ActualWidth + 24, 160, 340);
+        RenameExtension.Text = System.IO.Path.GetExtension(path);
+        CopyPathButton.Visibility = Visibility.Collapsed; RenameHost.Visibility = Visibility.Visible;
+        Dispatcher.BeginInvoke(DispatcherPriority.Input, () =>
+        {
+            if (renamePath != null) { RenameInput.Focus(); RenameInput.SelectAll(); }
+        });
+    }
+    private void EndRename()
+    {
+        renamePath = null; RenameHost.Visibility = Visibility.Collapsed; CopyPathButton.Visibility = Visibility.Visible;
+    }
+    private bool FinishRename()
+    {
+        if (renamePath is not string before || finishingRename) return true;
+        finishingRename = true;
+        try
+        {
+            if (document.Path != before || RenameInput.Text == System.IO.Path.GetFileNameWithoutExtension(before)) { EndRename(); return true; }
+            var renamed = FileActions.Rename(before, RenameInput.Text);
+            document.Relocate(renamed.Path); renameHistory.Record(before, document);
+            EndRename(); RenamedPath(before);
+            Toast(renamed.RecoveryPreserved ? "Image renamed · Ctrl+Z to undo" : "Image renamed. The recovery copy exists, but its new path could not be indexed.");
+            return true;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException)
+        { Toast(ex.Message); return false; }
+        finally { finishingRename = false; }
+    }
+    private void RenamedPath(string before)
+    {
+        siblings = siblings.Select(x => string.Equals(x, before, StringComparison.OrdinalIgnoreCase) ? document.Path! : x).OrderBy(x => x, StringComparer.OrdinalIgnoreCase).ToArray();
+        metadataRevision++; Refresh();
+    }
+    private void UndoRename(bool forward)
+    {
+        string before = document.Path!;
+        try
+        {
+            bool recovery = forward ? renameHistory.Redo(document) : renameHistory.Undo(document);
+            RenamedPath(before);
+            Toast(recovery ? forward ? "Rename redone" : "Rename undone" : "Name restored. The recovery copy could not be indexed at its new path.");
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException) { Toast(ex.Message); }
+    }
+    private void RenameLostFocus(object sender, KeyboardFocusChangedEventArgs e) => FinishRename();
+    private void WindowDeactivated(object? sender, EventArgs e) => FinishRename();
+    private void WindowMouseDown(object sender, MouseButtonEventArgs e)
+    {
+        if (renamePath == null || e.OriginalSource is not DependencyObject source || source == RenameHost || RenameHost.IsAncestorOf(source)) return;
+        if (!FinishRename()) { e.Handled = true; RenameInput.Focus(); }
+    }
+    private nint WindowMessage(nint hwnd, int message, nint wParam, nint lParam, ref bool handled)
+    {
+        // Caption clicks are native non-client events and do not reach PreviewMouseDown.
+        if (message == 0x00A1 && !FinishRename()) handled = true;
+        return 0;
+    }
+    private void DeleteImageClick(object sender, RoutedEventArgs e)
+    {
+        if (busy || document.Path is not string path) return;
+        titleClickTimer.Stop(); pendingTitlePath = null;
+        bool skip = FileActions.SkipDeleteConfirmation;
+        if (!skip)
+        {
+            var answer = Dialogs.DeleteImage(this, path, document.Dirty);
+            if (!answer.Confirmed) return;
+            skip = answer.Skip;
+        }
+        try
+        {
+            Annotations.CancelInteraction(); Annotations.FinishTextEditing();
+            FileActions.DeleteDocument(document);
+            renameHistory.Clear();
+            metadata = null; metadataRevision++; siblings = []; folder = null;
+            SetTool("View"); MarkupBar.Visibility = InfoPanel.Visibility = Visibility.Collapsed;
+            Refresh(); Toast("Image moved to the Recycle Bin");
+            if (skip != FileActions.SkipDeleteConfirmation)
+            {
+                try { FileActions.RememberDeleteConfirmation(skip); }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { Toast("Image deleted. The confirmation preference could not be saved."); }
+            }
+        }
+        catch (Exception ex) { Error(ex); }
+    }
     private void CopyText(string text, string message)
     { try { Clipboard.SetText(text); Toast(message); } catch (Exception ex) { Error(ex); } }
     private void PopulateInfo()
@@ -470,12 +613,15 @@ public partial class MainWindow : Window
             appearance.Items.Add(item);
         }
         menu.Items.Add(appearance); menu.Items.Add(new Separator());
+        var confirmDelete = new MenuItem { Header = "Confirm before deleting images", IsCheckable = true, IsChecked = !FileActions.SkipDeleteConfirmation };
+        confirmDelete.Click += (_, _) => { try { FileActions.RememberDeleteConfirmation(confirmDelete.IsChecked == false); } catch (Exception ex) { Error(ex); } };
+        menu.Items.Add(confirmDelete); menu.Items.Add(new Separator());
         void Item(string title, RoutedEventHandler handler, bool enabled = true)
         { var item = new MenuItem { Header = title, IsEnabled = enabled }; item.Click += handler; menu.Items.Add(item); }
         Item("Save                         Ctrl+S", SaveClick, document.BaseImage != null && !busy);
         Item("Save copy / convert…    Ctrl+Shift+S", SaveCopyClick, document.BaseImage != null && !busy);
         Item("Revert to original", RevertClick, document.BaseImage != null && !busy);
-        Item("Redo                         Ctrl+Y", (_, _) => Redo(), document.CanRedo && !busy);
+        Item("Redo                         Ctrl+Y", (_, _) => Redo(), (document.CanRedo || renameHistory.CanRedo(document)) && !busy);
         menu.Items.Add(new Separator());
         Item("Paste image                Ctrl+V", (_, _) => Paste(), !busy);
         Item("Copy image                 Ctrl+C", (_, _) => CopyImage(), document.BaseImage != null && !busy);
@@ -503,7 +649,7 @@ public partial class MainWindow : Window
             if (!Clipboard.ContainsImage()) { Toast("Copy an image first, then paste it here."); return; }
             if (!ConfirmLeave()) return;
             var image = Clipboard.GetImage(); if (image == null) return;
-            Imaging.CheckSize(image.PixelWidth, image.PixelHeight); document.Load(Imaging.Normalize(image), null);
+            Imaging.CheckSize(image.PixelWidth, image.PixelHeight); document.Load(Imaging.Normalize(image), null); renameHistory.Clear();
             metadata = null; metadataRevision++; siblings = []; folder = null; SetTool("View"); MarkupBar.Visibility = Visibility.Collapsed; Refresh(true);
         }
         catch (Exception ex) { Error(ex); }
@@ -521,8 +667,21 @@ public partial class MainWindow : Window
     private void WindowKeyDown(object sender, KeyEventArgs e)
     {
         if (busy) return;
+        if (renamePath != null && RenameInput.IsKeyboardFocusWithin)
+        {
+            if (e.Key == Key.Escape) { EndRename(); Keyboard.ClearFocus(); e.Handled = true; }
+            else if (e.Key == Key.Enter) { if (FinishRename()) Keyboard.ClearFocus(); e.Handled = true; }
+            return; // TextBox handles Ctrl+Z while the file name is still a draft.
+        }
         if (e.OriginalSource is TextBox || Annotations.TextInputHasFocus)
         {
+            if (Annotations.TextInputHasFocus && Keyboard.Modifiers.HasFlag(ModifierKeys.Control) && e.Key is Key.B or Key.I)
+            {
+                var style = Annotations.TextSelectionStyle;
+                if (e.Key == Key.B) Annotations.ChangeEmphasis(bold: !(style?.Bold ?? false));
+                else Annotations.ChangeEmphasis(italic: !(style?.Italic ?? false));
+                e.Handled = true; return;
+            }
             if (Annotations.TextInputHasFocus && Keyboard.Modifiers.HasFlag(ModifierKeys.Control) && e.Key is Key.Z or Key.Y)
             { if (e.Key == Key.Y || Keyboard.Modifiers.HasFlag(ModifierKeys.Shift)) Redo(); else UndoClick(this, e); e.Handled = true; return; }
             if (e.Key == Key.S && Keyboard.Modifiers.HasFlag(ModifierKeys.Control))
@@ -545,6 +704,7 @@ public partial class MainWindow : Window
                 case Key.Z: if (shift) Redo(); else UndoClick(this, e); break;
                 case Key.Y: Redo(); break;
                 case Key.I: InfoClick(this, e); break;
+                case Key.B: if (Annotations.Selected is not { Kind: "Text" } selected) return; Annotations.ChangeEmphasis(bold: !selected.Bold); break;
                 case Key.D0: FitClick(this, e); break;
                 case Key.D1: ActualClick(this, e); break;
                 case Key.V: Paste(); break;

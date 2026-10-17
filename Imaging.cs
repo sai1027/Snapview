@@ -48,6 +48,9 @@ internal sealed class ImageDocument
     public void Undo() { if (!CanUndo) return; Scene?.ReleaseComposite(); redo.Add(Scene!); Scene = undo[^1]; undo.RemoveAt(undo.Count - 1); }
     public void Redo() { if (!CanRedo) return; Scene?.ReleaseComposite(); undo.Add(Scene!); Scene = redo[^1]; redo.RemoveAt(redo.Count - 1); }
     public void MarkSaved(string path) { Path = path; saved = Scene; }
+    public void Relocate(string path) { Path = path; }
+    public void Clear()
+    { Scene = saved = null; Original = null; Path = null; undo.Clear(); redo.Clear(); }
 }
 
 internal static class Imaging

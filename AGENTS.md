@@ -19,6 +19,8 @@ are outside the current scope unless explicitly requested.
 - `AnnotationEditor.cs`: inline text input, object hit-testing, selection handles and grouped drags.
 - `AnnotationText.cs`: RichTextBox/FlowDocument conversion, text-selection offsets, immutable color/font runs.
 - `Theme.cs`: live light/dark palette and local appearance preference; use dynamic resources for UI colors.
+- `FileActions.cs`: validated same-folder rename, original-recovery reindexing, Recycle Bin deletion and confirmation preference.
+- `RenameHistory.cs`: file-name undo/redo interleaved with scene edits using weak scene anchors.
 - `CropPreview.cs`: UI-only outside shading, crop dimensions/ratio and shared pixel rounding.
 - `WindowBounds.cs`: monitor work-area bounds for the borderless maximized window.
 - `Dialogs.cs`: resize and OCR copy dialogs; annotation text is edited on the canvas.
@@ -63,9 +65,9 @@ failure exits 1 and writes `self-test-error.txt` beside the executable.
   lazily rasterizes the scene for export/OCR/copy; never invoke it on every pointer move.
 - Selection borders, move handles and the inline RichTextBox are UI-only. Export draws
   annotation models, not editor visuals. Side text handles reflow; corners stretch.
-- TextStyles contain immutable character ranges (UTF-16 offsets, color, font size).
+- TextStyles contain immutable character ranges (UTF-16 offsets, color, font size, bold, italic).
   Keep editor/export rendering and selection offsets consistent across newlines.
-  Highlighted text alone receives toolbar color/size changes; an empty selection
+  Highlighted text alone receives toolbar color/size/emphasis changes; an empty selection
   styles the whole box. Preserve other properties and surrounding words; plain-text
   paste only, 5,000-character limit, shared scene undo (no separate rich-editor history).
 - Save via temporary file + replacement. Capture original bytes before overwrite;
@@ -93,3 +95,17 @@ checks run, and any remaining limitations. Preserve unrelated user work.
 in `%LOCALAPPDATA%\Snapview\appearance.json`; images/annotation colors never follow
 the UI theme. Title filename and Image details can copy the current file path;
 clipboard images have no path, and photo coordinates have a separate copy action.
+Filename single-click copying waits for the Windows double-click interval; a
+double-click cancels it and edits the base name in the title bar, selected initially.
+Click outside or press Enter to commit an edited name; unchanged text does no file
+operation. Esc cancels; Ctrl+Z undoes draft typing, or the committed rename after
+leaving the field. Native caption clicks also commit through the window message hook.
+Rename preserves extension, bytes, dirty/history state and existing original recovery;
+never overwrite a destination. Empty title-bar space retains WindowChrome gestures.
+RenameHistory matches scene identity to keep rename/image undo chronological; it
+must not retain pixel buffers. New edits clear rename redo; opening/pasting/deleting
+or saving to another path clears rename history. Failed moves keep history intact.
+Image deletion uses the Recycle Bin, closes the canvas only after success, and
+retains original recovery copies. The confirmation defaults to No; remember the
+skip checkbox only after Yes and successful deletion. More can restore confirmation.
+The preference is in `%LOCALAPPDATA%\Snapview\file-actions.json`.

@@ -40,12 +40,17 @@ Snapview registers its capabilities under the current user's registry keys. It d
 | Annotate | Markup: pen, rectangle, ellipse, arrow, text; click an object to move, resize or recolor it |
 | Add text | Add text or `T`, click the image and type directly; font size and color are in the markup bar |
 | Style selected words | Highlight text, then choose a color or font size; only the selection changes. No highlighted text styles the whole box |
+| Bold / italic | B / I beside Font; highlight words to style only them. Ctrl+B / Ctrl+I work while typing |
 | Edit text layout | Drag Move to reposition; side handles change wrapping; corners stretch/squash; double-click or `F2` edits text |
 | Edit arrow | Drag the head/tail handles independently to redirect or shorten it |
 | Select / remove | `V` selects; Delete removes the selected object; arrow keys nudge (Shift = 10 pixels) |
 | Extract text | Extract text button with scan icon or `Ctrl+Shift+C`; select or copy recognized text |
 | Details | `Ctrl+I`: file size, format, resolution, camera EXIF and GPS when present |
-| Copy path | Click the title-bar filename once, or Copy image path in Image details; GPS details can also copy coordinates |
+| Copy path | Hover the filename for its full path; single-click to copy after the double-click interval, or use Copy image path in Image details |
+| Rename image | Double-click the filename to edit in place; click outside or Enter to apply changes, Esc to cancel; the extension stays unchanged |
+| Undo rename | Ctrl+Z while editing undoes typing; after leaving the field it restores the previous file name. Ctrl+Y redoes a committed rename |
+| Delete image file | Trash button before Undo → Yes / No; moves the file to the Recycle Bin and closes the image. Optional checkbox skips future confirmations |
+| Restore delete prompt | … → Confirm before deleting images |
 | Appearance | … → Appearance → Light / Dark; your choice is remembered |
 | Map | View on map opens the source coordinates in OpenStreetMap in your browser |
 | Save | `Ctrl+S` replaces supported files; Save copy or `Ctrl+Shift+S` converts/exports |

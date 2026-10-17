@@ -38,14 +38,16 @@ internal static class AnnotationText
         int index = 0;
         while (index < annotation.Text.Length)
         {
-            var style = annotation.StyleAt(index);
+            var style = annotation.AppearanceAt(index);
             int end = index + 1;
-            while (end < annotation.Text.Length && annotation.StyleAt(end) == style) end++;
-            paragraph.Inlines.Add(new Run(annotation.Text[index..end]) { Foreground = new SolidColorBrush(style.Color), FontSize = style.FontSize });
+            while (end < annotation.Text.Length && annotation.AppearanceAt(end) == style) end++;
+            paragraph.Inlines.Add(new Run(annotation.Text[index..end]) { Foreground = new SolidColorBrush(style.Color), FontSize = style.FontSize,
+                FontWeight = style.Bold ? FontWeights.Bold : FontWeights.Normal, FontStyle = style.Italic ? FontStyles.Italic : FontStyles.Normal });
             index = end;
         }
         var document = new FlowDocument(paragraph) { PagePadding = new Thickness(0), FontFamily = new FontFamily("Segoe UI"),
-            FontSize = annotation.FontSize, Foreground = new SolidColorBrush(annotation.Color) };
+            FontSize = annotation.FontSize, Foreground = new SolidColorBrush(annotation.Color),
+            FontWeight = annotation.Bold ? FontWeights.Bold : FontWeights.Normal, FontStyle = annotation.Italic ? FontStyles.Italic : FontStyles.Normal };
         document.Resources.Add(typeof(Paragraph), new Style(typeof(Paragraph)) { Setters = { new Setter(Block.MarginProperty, new Thickness(0)) } });
         editor.Document = document;
         int left = Math.Clamp(start, 0, annotation.Text.Length), right = Math.Clamp(start + length, left, annotation.Text.Length);
@@ -55,24 +57,26 @@ internal static class AnnotationText
     {
         var text = new StringBuilder();
         var styles = new List<TextStyleRange>();
-        void Append(string value, Color color, double size)
+        void Append(string value, Color color, double size, bool bold, bool italic)
         {
             if (value.Length == 0) return;
             int start = text.Length; text.Append(value);
-            if (styles.LastOrDefault() is { } last && last.Color == color && last.FontSize == size)
+            if (styles.LastOrDefault() is { } last && last.Color == color && last.FontSize == size && last.Bold == bold && last.Italic == italic)
                 styles[^1] = last with { Length = last.Length + value.Length };
-            else styles.Add(new(start, value.Length, color, size));
+            else styles.Add(new(start, value.Length, color, size, bold, italic));
         }
         void Inlines(InlineCollection inlines)
         {
             foreach (var inline in inlines)
-                if (inline is Run run) Append(run.Text.Replace("\r\n", "\n"), (run.Foreground as SolidColorBrush)?.Color ?? original.Color, run.FontSize);
+                if (inline is Run run) Append(run.Text.Replace("\r\n", "\n"), (run.Foreground as SolidColorBrush)?.Color ?? original.Color, run.FontSize,
+                    run.FontWeight >= FontWeights.SemiBold, run.FontStyle != FontStyles.Normal);
                 else if (inline is Span span) Inlines(span.Inlines);
-                else if (inline is LineBreak) Append("\n", original.Color, original.FontSize);
+                else if (inline is LineBreak line) Append("\n", (line.Foreground as SolidColorBrush)?.Color ?? original.Color, line.FontSize,
+                    line.FontWeight >= FontWeights.SemiBold, line.FontStyle != FontStyles.Normal);
         }
         foreach (var paragraph in editor.Document.Blocks.OfType<Paragraph>())
         {
-            if (text.Length > 0 || paragraph != editor.Document.Blocks.FirstBlock) Append("\n", original.Color, original.FontSize);
+            if (text.Length > 0 || paragraph != editor.Document.Blocks.FirstBlock) Append("\n", original.Color, original.FontSize, original.Bold, original.Italic);
             Inlines(paragraph.Inlines);
         }
         return original with { Text = text.ToString(), TextStyles = styles.ToArray() };

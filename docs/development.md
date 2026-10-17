@@ -78,14 +78,15 @@ size/annotation bugs. Watch `document.Dirty`, history state, `tool`, `busy` and
 
 This is an in-app smoke/integration runner, not xUnit/NUnit or `dotnet test`.
 The WPF app starts on an STA thread, runs `SmokeTests.Run`, writes results and exits
-without opening the main window. The base suite currently has **20** checks;
-the optional fixtures add one combined HEIC/AVIF check for **21** total.
+without opening the main window. The base suite currently has **26** checks;
+the optional fixtures add one combined HEIC/AVIF check for **27** total.
 
 | Area | Assertions |
 | --- | --- |
 | Encoding/decoding | PNG round trip and JPEG/WebP/BMP/TIFF export dimensions |
 | Edits | Resize/crop/rotate dimensions, all eight orientation transforms, 96-DPI normalization |
-| State / layers | Undo/redo, saved scene identity, grouped gestures, selected-word color/size, multiline rich-text round trip, mixed-style export, layer restoration after raster operations |
+| State / layers | Undo/redo, saved scene identity, grouped gestures, selected-word color/size/bold/italic, multiline rich-text round trip, mixed-style export, layer restoration after raster operations |
+| File actions | Rename validation/collisions, byte/extension/recovery preservation, interleaved rename/image undo-redo, undo collision recovery, disposable Recycle Bin deletion, failed deletion state, confirmation preference |
 | Recovery | Original bytes survive overwrite; external file changes invalidate the backup lookup |
 | Metadata | Missing GPS, synthetic GPS coordinates, source EXIF orientation, GPS omitted on export |
 | OCR | Bundled English model recognizes generated sample text locally |
@@ -131,6 +132,17 @@ Check changed interactions at the 850 × 590 minimum, normal size and maximized:
 8. Switch Light/Dark from Appearance, inspect menus/inputs/details and restart to
    verify the choice persists. Copy the title filename and details path into a
    disposable field; verify clipboard-only images cannot copy a nonexistent path.
+   Confirm the selected Stroke number remains readable with the dropdown closed in Dark mode.
+9. Apply Bold/Italic to a selected word, change color/size, undo/redo and export.
+   Test Ctrl+B/Ctrl+I while typing and verify surrounding words keep their styles.
+10. Hover/single-click/double-click the filename; verify full-path tooltip, copy,
+    in-place selected base name, caret editing, outside-click/Enter commit, unchanged
+    no-op, Esc cancel, draft Ctrl+Z and committed rename undo/redo. Check collisions,
+    extension preservation and undo order around image edits. Double-click empty
+    title space to maximize/restore; inspect the title field at minimum size.
+11. On a disposable file, inspect delete Yes/No/default No/checkbox behavior, successful
+    empty-canvas reset, errors and restored confirmation. The pipeline suite recycles
+    its own uniquely named test file; never validate deletion on personal photos.
 
 Do not change personal Windows defaults or remove recovery data just to validate
 a patch. Test installation/association behavior in a disposable Windows account or

@@ -42,8 +42,8 @@ public sealed class AnnotationEditor : Canvas
     private Annotation? editorSnapshot;
     internal bool IsEditingText => editor != null;
     internal bool TextInputHasFocus => editor?.IsKeyboardFocusWithin == true;
-    internal (Color Color, double FontSize)? TextSelectionStyle => editor != null && Selected is { } text
-        ? text.StyleAt(AnnotationText.Selection(editor).Start) : null;
+    internal TextAppearance? TextSelectionStyle => editor != null && Selected is { } text
+        ? text.AppearanceAt(AnnotationText.Selection(editor).Start) : null;
     private double zoom = 1;
 
     public AnnotationEditor()
@@ -108,13 +108,14 @@ public sealed class AnnotationEditor : Canvas
     { StrokeWidth = size; if (Selected is { Kind: not "Text" } item) Update(item with { Stroke = size }); }
     internal void ChangeFont(double size)
     { TextSize = size; if (Selected is { Kind: "Text" }) ChangeTextStyle(null, size); }
-    private void ChangeTextStyle(Color? color, double? size)
+    internal void ChangeEmphasis(bool? bold = null, bool? italic = null) => ChangeTextStyle(null, null, bold, italic);
+    private void ChangeTextStyle(Color? color, double? size, bool? bold = null, bool? italic = null)
     {
         if (Selected is not { Kind: "Text" } item) return;
         var range = editor == null ? (Start: 0, Length: item.Text.Length) : AnnotationText.Selection(editor);
         if (range.Length == 0) range = (0, item.Text.Length);
         typingGroup = false;
-        Update(item.WithTextStyle(range.Start, range.Length, color, size));
+        Update(item.WithTextStyle(range.Start, range.Length, color, size, bold, italic));
     }
     internal bool DeleteSelected()
     {

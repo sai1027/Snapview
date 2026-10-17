@@ -20,6 +20,21 @@ internal static class Dialogs
         var button = new Button { Content = text, Style = (Style)Application.Current.FindResource("Primary"), HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, 22, 0, 0) };
         button.Click += (_, _) => action(); ((StackPanel)window.Content).Children.Add(button); return button;
     }
+    public static (bool Confirmed, bool Skip) DeleteImage(Window owner, string path, bool dirty)
+    {
+        var window = Create(owner, "Delete image", "Are you sure you want to delete this image?", 460);
+        var panel = (StackPanel)window.Content;
+        panel.Children.Add(new TextBlock { Text = System.IO.Path.GetFileName(path), TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 0, 0, 8) });
+        var hint = new TextBlock { Text = "The file will move to the Recycle Bin." + (dirty ? " Unsaved edits to this image will be discarded." : ""), TextWrapping = TextWrapping.Wrap };
+        hint.SetResourceReference(TextBlock.ForegroundProperty, "Muted"); panel.Children.Add(hint);
+        var skip = new CheckBox { Content = "Do not show this confirmation again", Margin = new Thickness(0, 18, 0, 0) }; panel.Children.Add(skip);
+        var buttons = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, 22, 0, 0) };
+        var yes = new Button { Content = "Yes", MinWidth = 70, Margin = new Thickness(0, 0, 8, 0) };
+        var no = new Button { Content = "No", IsDefault = true, IsCancel = true, MinWidth = 70, Style = (Style)Application.Current.FindResource("Primary") };
+        yes.Click += (_, _) => window.DialogResult = true;
+        buttons.Children.Add(yes); buttons.Children.Add(no); panel.Children.Add(buttons);
+        return (window.ShowDialog() == true, skip.IsChecked == true);
+    }
     public static (int Width, int Height)? Resize(Window owner, int width, int height)
     {
         var window = Create(owner, "Resize image", "Set the dimensions in pixels. Your original stays available in Revert.");

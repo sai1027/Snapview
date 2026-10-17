@@ -235,6 +235,102 @@ internal static class SmokeTests
             Assert(red > 200 && black > 100, "Export did not render both word colors");
             doc.MarkSaved(path); Assert(doc.Annotations[0].StyleAt(0) == (Colors.Red, 64d), "Save discarded the editable styled word");
         });
+        Check("Selected-word bold and italic round trip and render through history", () =>
+        {
+            var original = new Annotation { Kind = "Text", Text = "Small bold words", Color = Colors.Black, FontSize = 32, Box = new Rect(20, 20, 600, 100) };
+            var bold = original.WithTextStyle(6, 4, bold: true);
+            var both = bold.WithTextStyle(6, 4, italic: true).WithTextStyle(6, 4, Colors.Red, 48);
+            Assert(!both.AppearanceAt(0).Bold && !both.AppearanceAt(11).Italic, "Emphasis changed unselected words");
+            Assert(both.AppearanceAt(7) == new TextAppearance(Colors.Red, 48, true, true), "Color/size changes lost emphasis");
+            var editor = new System.Windows.Controls.RichTextBox(); AnnotationText.Load(editor, both, 6, 4);
+            Assert(editor.Selection.Text == "bold", "Emphasis lost the word selection");
+            var restored = AnnotationText.Read(editor, both);
+            Assert(restored.AppearanceAt(7) == both.AppearanceAt(7) && !restored.AppearanceAt(0).Bold, "Rich text round trip lost emphasis");
+            editor.Selection.ApplyPropertyValue(System.Windows.Documents.TextElement.FontWeightProperty, FontWeights.Normal);
+            var normal = AnnotationText.Read(editor, both);
+            Assert(!normal.AppearanceAt(7).Bold && normal.AppearanceAt(7).Italic, "Removing bold discarded italic");
+            var doc = new ImageDocument(); doc.Load(image, source); doc.SetAnnotations([bold]); doc.SetAnnotations([both]);
+            doc.Undo(); Assert(doc.Annotations[0].AppearanceAt(7).Bold && !doc.Annotations[0].AppearanceAt(7).Italic, "Undo lost emphasis state");
+            doc.Redo(); Assert(doc.Annotations[0].AppearanceAt(7).Italic, "Redo lost italic state");
+            var visual = new DrawingVisual(); using (var dc = visual.RenderOpen()) { dc.DrawRectangle(Brushes.White, null, new Rect(0, 0, 1200, 800)); both.Draw(dc); }
+            string path = Path.Combine(directory, "bold-italic.png"); Imaging.Save(Imaging.Render(visual, 1200, 800), path);
+            byte[] rendered = Imaging.Png(Imaging.Load(path));
+            var plain = both.WithTextStyle(6, 4, bold: false, italic: false);
+            var plainVisual = new DrawingVisual(); using (var dc = plainVisual.RenderOpen()) { dc.DrawRectangle(Brushes.White, null, new Rect(0, 0, 1200, 800)); plain.Draw(dc); }
+            Assert(!rendered.SequenceEqual(Imaging.Png(Imaging.Render(plainVisual, 1200, 800))), "Export ignored bold/italic fonts");
+        });
+        Check("Rename validates names and preserves bytes, edits, history and recovery", () =>
+        {
+            string oldPath = Path.Combine(directory, "rename-source.png"); Imaging.Save(image, oldPath);
+            string backup = Originals.Capture(oldPath); Imaging.Save(Imaging.Resize(image, 600, 400), oldPath); Originals.Record(oldPath, backup);
+            byte[] bytes = File.ReadAllBytes(oldPath);
+            var doc = new ImageDocument(); doc.Load(Imaging.Load(oldPath), oldPath);
+            doc.SetAnnotations([new Annotation { Kind = "Text", Text = "Unsaved", Box = new Rect(10, 10, 200, 60) }]);
+            var scene = doc.Scene;
+            string name = "renamed-" + Guid.NewGuid().ToString("N");
+            var result = FileActions.Rename(oldPath, name); doc.Relocate(result.Path);
+            Assert(!File.Exists(oldPath) && Path.GetFileName(result.Path) == name + ".png" && bytes.SequenceEqual(File.ReadAllBytes(result.Path)), "Rename changed bytes or extension");
+            Assert(result.RecoveryPreserved && Originals.Find(result.Path) == backup, "Rename lost persistent original recovery");
+            Assert(doc.Scene == scene && doc.Dirty && doc.CanUndo && doc.Path == result.Path, "Rename lost editable state");
+            doc.Undo(); Assert(!doc.Dirty && doc.Path == result.Path, "Undo reverted the new file path");
+            doc.Redo(); Assert(doc.Dirty && doc.Annotations.Length == 1, "Redo after rename lost layers");
+            string collision = Path.Combine(directory, "rename-collision.png"); File.WriteAllBytes(collision, bytes);
+            bool rejected = false; try { FileActions.Rename(result.Path, "rename-collision"); } catch (IOException) { rejected = true; }
+            Assert(rejected && File.Exists(result.Path) && bytes.SequenceEqual(File.ReadAllBytes(collision)), "Rename replaced an existing image");
+            foreach (string bad in new[] { "", "..", "CON", "NUL.txt", "COM1", "bad/name", "bad\\name", "name.", "name ", "name:stream" })
+            { rejected = false; try { FileActions.RenameDestination(result.Path, bad); } catch (ArgumentException) { rejected = true; } Assert(rejected, "Unsafe file name accepted: " + bad); }
+        });
+        Check("Delete removes a disposable file and clears history only after success", () =>
+        {
+            string path = Path.Combine(directory, "delete-disposable-" + Guid.NewGuid().ToString("N") + ".png"); Imaging.Save(image, path);
+            var doc = new ImageDocument(); doc.Load(image, path); doc.SetAnnotations([new Annotation { Box = new Rect(1, 1, 10, 10) }]);
+            FileActions.DeleteDocument(doc);
+            Assert(!File.Exists(path) && doc.Path == null && doc.Current == null && doc.Original == null && !doc.Dirty && !doc.CanUndo && !doc.CanRedo, "Delete did not clear the image and history");
+            doc.Load(image, path); var scene = doc.Scene;
+            bool failed = false; try { FileActions.DeleteDocument(doc); } catch (FileNotFoundException) { failed = true; }
+            Assert(failed && doc.Scene == scene && doc.Path == path, "Failed deletion cleared the loaded document");
+        });
+        Check("Delete confirmation preference defaults safe and can be restored", () =>
+        {
+            string path = Path.Combine(directory, "delete-preference.json");
+            File.WriteAllText(path, "broken-json"); Assert(!FileActions.ReadPreference(path), "Invalid settings skipped confirmation");
+            FileActions.WritePreference(path, true); Assert(FileActions.ReadPreference(path), "Skip preference was not saved");
+            FileActions.WritePreference(path, false); Assert(!FileActions.ReadPreference(path), "Confirmation could not be restored");
+        });
+        Check("Rename undo and redo follow the order of file names and image edits", () =>
+        {
+            string id = Guid.NewGuid().ToString("N");
+            string initial = Path.Combine(directory, "history-" + id + ".png"); Imaging.Save(image, initial);
+            var doc = new ImageDocument(); doc.Load(image, initial);
+            var history = new RenameHistory();
+            void Rename(string name)
+            { string before = doc.Path!; doc.Relocate(FileActions.Rename(before, name).Path); history.Record(before, doc); }
+            Rename("first-" + id); string first = doc.Path!;
+            Assert(history.CanUndo(doc) && !doc.CanUndo && !doc.Dirty, "File-only rename should be undoable without dirty pixels");
+            doc.SetAnnotations([new Annotation { Box = new Rect(20, 20, 30, 30) }]);
+            Assert(!history.CanUndo(doc), "Rename incorrectly took priority over a later image edit");
+            Rename("second-" + id); string second = doc.Path!; var edited = doc.Scene;
+            Assert(history.CanUndo(doc), "Latest rename was not available");
+            history.Undo(doc); Assert(doc.Path == first && doc.Scene == edited && doc.Dirty, "Undo rename changed the pixels");
+            doc.Undo(); Assert(history.CanUndo(doc) && !doc.Dirty, "Earlier rename was not restored at its history position");
+            history.Undo(doc); Assert(doc.Path == initial && File.Exists(initial) && !File.Exists(first), "Original name was not restored on disk");
+            history.Redo(doc); Assert(doc.Path == first && !history.CanRedo(doc), "Redo skipped an intervening image edit");
+            doc.Redo(); Assert(history.CanRedo(doc), "Second rename was not available after the image redo");
+            history.Redo(doc); Assert(doc.Path == second && doc.Scene == edited && File.Exists(second), "Redo did not restore the last name and edits");
+        });
+        Check("Rename undo collisions preserve the current file and pending undo", () =>
+        {
+            string id = Guid.NewGuid().ToString("N");
+            string initial = Path.Combine(directory, "undo-collision-" + id + ".png"); Imaging.Save(image, initial);
+            var doc = new ImageDocument(); doc.Load(image, initial);
+            var history = new RenameHistory();
+            string renamed = FileActions.Rename(initial, "undo-renamed-" + id).Path; doc.Relocate(renamed); history.Record(initial, doc);
+            File.WriteAllText(initial, "another file");
+            bool failed = false; try { history.Undo(doc); } catch (IOException) { failed = true; }
+            Assert(failed && doc.Path == renamed && File.Exists(renamed) && history.CanUndo(doc) && File.ReadAllText(initial) == "another file", "Undo rename overwrote a collision or lost history");
+            // Use the real branch invalidation method, without changing global preferences.
+            history.Clear(); Assert(!history.CanUndo(doc) && !history.CanRedo(doc), "Loading another file would retain rename history");
+        });
         // Optional external codec fixtures, fetched by scripts/test.ps1. HEIC encoding is
         // deliberately unavailable in the Windows codec bundle, so use decoder fixtures.
         if (Environment.GetEnvironmentVariable("SNAPVIEW_CODEC_FIXTURES") is string fixtures)

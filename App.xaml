@@ -32,6 +32,19 @@
         </ControlTemplate.Triggers>
       </ControlTemplate></Setter.Value></Setter>
     </Style>
+    <Style x:Key="TextEmphasis" TargetType="ToggleButton">
+      <Setter Property="Foreground" Value="{DynamicResource Ink}"/><Setter Property="Cursor" Value="Hand"/>
+      <Setter Property="Width" Value="32"/><Setter Property="Height" Value="32"/><Setter Property="Margin" Value="4,0,0,0"/>
+      <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="ToggleButton">
+        <Border x:Name="Box" Background="Transparent" BorderBrush="Transparent" BorderThickness="1" CornerRadius="5"><ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/></Border>
+        <ControlTemplate.Triggers>
+          <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Box" Property="Background" Value="{DynamicResource Hover}"/></Trigger>
+          <Trigger Property="IsChecked" Value="True"><Setter TargetName="Box" Property="Background" Value="{DynamicResource Selected}"/><Setter TargetName="Box" Property="BorderBrush" Value="{DynamicResource Accent}"/></Trigger>
+          <Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="Box" Property="BorderBrush" Value="{DynamicResource Accent}"/></Trigger>
+          <Trigger Property="IsEnabled" Value="False"><Setter Property="Opacity" Value="0.34"/></Trigger>
+        </ControlTemplate.Triggers>
+      </ControlTemplate></Setter.Value></Setter>
+    </Style>
     <Style TargetType="Window">
       <Setter Property="FontFamily" Value="Segoe UI"/><Setter Property="FontSize" Value="13"/>
       <Setter Property="Background" Value="{DynamicResource Surface}"/><Setter Property="Foreground" Value="{DynamicResource Ink}"/>
@@ -65,7 +78,7 @@
     <Style TargetType="ComboBox">
       <Setter Property="Foreground" Value="{DynamicResource Ink}"/><Setter Property="Background" Value="{DynamicResource Field}"/><Setter Property="MinHeight" Value="32"/>
       <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="ComboBox">
-        <Grid><ToggleButton Focusable="False" IsChecked="{Binding IsDropDownOpen, RelativeSource={RelativeSource TemplatedParent}, Mode=TwoWay}">
+        <Grid><ToggleButton Focusable="False" Foreground="{DynamicResource Ink}" IsChecked="{Binding IsDropDownOpen, RelativeSource={RelativeSource TemplatedParent}, Mode=TwoWay}">
           <ToggleButton.Template><ControlTemplate TargetType="ToggleButton"><Border Background="{DynamicResource Field}" BorderBrush="{DynamicResource Divider}" BorderThickness="1" CornerRadius="4"><Grid><ContentPresenter Content="{Binding SelectionBoxItem, RelativeSource={RelativeSource AncestorType=ComboBox}}" Margin="8,4,22,4"/><TextBlock Text="⌄" Foreground="{DynamicResource Muted}" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,7,0"/></Grid></Border></ControlTemplate></ToggleButton.Template>
         </ToggleButton><Popup x:Name="PART_Popup" Placement="Bottom" IsOpen="{TemplateBinding IsDropDownOpen}" AllowsTransparency="True" Focusable="False"><Border Background="{DynamicResource Field}" BorderBrush="{DynamicResource Divider}" BorderThickness="1" MinWidth="{Binding ActualWidth, RelativeSource={RelativeSource TemplatedParent}}"><ScrollViewer><ItemsPresenter KeyboardNavigation.DirectionalNavigation="Contained"/></ScrollViewer></Border></Popup></Grid>
       </ControlTemplate></Setter.Value></Setter>
