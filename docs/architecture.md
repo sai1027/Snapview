@@ -13,6 +13,8 @@
 | `AnnotationEditor.cs` | Inline text, object hit-testing, move/resize/end handles and gesture grouping |
 | `AnnotationText.cs` | Rich editor/model conversion and newline-aware selection offsets |
 | `Theme.cs` | Light/dark resource palette, native dialog caption theme and saved appearance |
+| `UiIcon.cs` | Shared scalable outline icons with inherited themed foregrounds |
+| `FloatingToolbar.cs` | Toolbar grip input and UI-only placement of tools and attached options |
 | `FileActions.cs` | Validated rename, recovery reindexing, Recycle Bin deletion and delete preference |
 | `RenameHistory.cs` | Rename undo/redo at the correct scene-history position without retaining bitmaps |
 | `CropPreview.cs` | UI-only crop shading and live dimensions/ratio; shared pixel bounds for the actual crop |
@@ -99,6 +101,17 @@ crop/resize/rotate currently composite layers into the resulting pixels; undo
 restores the previous editable scene. Selection alone never changes dirty state.
 
 ## Crop, history controls and window layout
+
+The window uses a 44-pixel header and 26-pixel footer. Editing tools start centered
+in the header; zoom stays fixed in the footer. A transparent canvas above the viewer
+contains the toolbar and its contextual options without intercepting input elsewhere.
+The six-dot grip moves both rows; options flip above the tools near the bottom and
+clamp to the client area. Double-clicking the grip, pressing Home with grip focus,
+or choosing **… → Dock toolbar** returns it to the header. Arrow keys move a focused
+grip by one screen unit (Shift: ten). Position is session-only and never enters
+document history or image coordinates. Text and drawing options appear separately;
+crop uses the same attached row for Apply/cancel. All commands retain their existing
+handlers, and the contextual controls stay in the window to preserve text selection.
 
 Crop selection keeps its original colors while an even-odd mask dims the surrounding
 image. A badge shows the exact export dimensions and approximate aspect ratio.

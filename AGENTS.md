@@ -19,6 +19,11 @@ are outside the current scope unless explicitly requested.
 - `AnnotationEditor.cs`: inline text input, object hit-testing, selection handles and grouped drags.
 - `AnnotationText.cs`: RichTextBox/FlowDocument conversion, text-selection offsets, immutable color/font runs.
 - `Theme.cs`: live light/dark palette and local appearance preference; use dynamic resources for UI colors.
+- `UiIcon.cs`: shared outline icon geometry; inherit themed foregrounds instead of font glyphs.
+- `FloatingToolbar.cs`: UI-only toolbar placement, grip dragging, keyboard movement and edge clamping.
+  Tools start centered in the header, contextual options follow the grip, and zoom
+  stays in the footer. Double-click/Home docks; focused grip arrows move it (Shift: ten).
+  Toolbar position is session-only; never write it into document/annotation state.
 - `FileActions.cs`: validated same-folder rename, original-recovery reindexing, Recycle Bin deletion and confirmation preference.
 - `RenameHistory.cs`: file-name undo/redo interleaved with scene edits using weak scene anchors.
 - `CropPreview.cs`: UI-only outside shading, crop dimensions/ratio and shared pixel rounding.

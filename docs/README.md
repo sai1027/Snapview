@@ -44,7 +44,10 @@ index a library. New file activations currently create separate processes/window
 The light/dark palettes are in `Theme.cs`; common control styles use dynamic
 resources in `App.xaml`. **… → Appearance → Light / Dark** changes the UI immediately
 and saves the choice locally. Theme changes do not alter image or annotation colors. Layout and
-window chrome are in `MainWindow.xaml`. Use the existing styles and tooltips when
+window chrome are in `MainWindow.xaml`. `UiIcon.cs` draws consistent outline icons;
+`FloatingToolbar.cs` positions the draggable tools and attached contextual row.
+The default toolbar is centered in the slim header; zoom stays in the footer.
+Use the existing styles and tooltips when
 adding controls; keep advanced controls contextual to the current image/tool.
 `Assets/Snapview.drawing.xml` is the native vector icon source; its small `Snapview-mark.png`
 derivative supplies the colorful title-bar mark, and `Assets/Snapview.ico` supplies

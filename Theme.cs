@@ -13,14 +13,15 @@ internal static class Theme
     public static bool IsDark { get; private set; }
     private static readonly (string Key, string Light, string Dark)[] Palette =
     [
-        ("Ink", "#242B29", "#EDF2EF"), ("Muted", "#777F79", "#A9B6AF"),
-        ("Accent", "#426958", "#80B49A"), ("Surface", "#FAFBF9", "#202723"),
-        ("Canvas", "#F0F2ED", "#151B18"), ("Markup", "#F4F6F1", "#262F29"),
-        ("Divider", "#DCE0DA", "#404C44"), ("Selected", "#DAE4D5", "#425E4D"),
-        ("SoftButton", "#E8EEE6", "#35463B"), ("Hover", "#E9EDE7", "#39473E"),
-        ("Pressed", "#DCE5DC", "#465A4C"), ("Field", "#FFFFFF", "#1B231E"),
-        ("PrimaryBrush", "#426958", "#3D7056"), ("PrimaryHover", "#335443", "#4C8567"),
-        ("SwatchRing", "#245D9A", "#96C5FF"), ("SwatchSelected", "#E0EBF7", "#344F69")
+        ("Ink", "#303640", "#D8DCE2"), ("Muted", "#66707D", "#99A1AC"),
+        ("Accent", "#2869C5", "#5799F2"), ("Surface", "#F8F9FB", "#1B1D20"),
+        ("Canvas", "#ECEFF2", "#101112"), ("Markup", "#FFFFFF", "#1B1D20"),
+        ("Divider", "#D1D7DF", "#3A3D43"), ("Selected", "#E6EFFC", "#243954"),
+        ("SoftButton", "#E9EDF3", "#292D34"), ("Hover", "#E9EDF3", "#292D34"),
+        ("Pressed", "#DCE5F1", "#334053"), ("Field", "#FFFFFF", "#1B1D20"),
+        ("PrimaryBrush", "#2869C5", "#2869C5"), ("PrimaryHover", "#2057A5", "#347ADD"),
+        ("SwatchRing", "#2869C5", "#5799F2"), ("SwatchSelected", "#E6EFFC", "#243954"),
+        ("ToastSurface", "#303640", "#303640"), ("ToastInk", "#FFFFFF", "#FFFFFF")
     ];
 
     public static void Load()

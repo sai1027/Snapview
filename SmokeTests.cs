@@ -34,7 +34,62 @@ internal static class SmokeTests
         }
         var image = Imaging.Render(visual, 1200, 800);
         var source = Path.Combine(directory, "sample.png");
+        Check("Floating toolbar stays inside the client area and options follow it", () =>
+        {
+            foreach (var size in new[] { new Size(848, 562), new Size(1158, 762), new Size(1918, 1012) })
+            {
+                var tools = new Size(203, 34); var options = new Size(520, 40);
+                var dock = ToolbarPlacement.Calculate(size, tools, options, true, new Point(9000, 9000));
+                Assert(Math.Abs(dock.Tools.Left + dock.Tools.Width / 2 - size.Width / 2) < .01 && dock.Tools.Top == 5, "Default toolbar is not centered in the header");
+                Assert(dock.Options.Top >= dock.Tools.Bottom, "Docked options overlap the main toolbar");
+                foreach (var point in new[] { new Point(-100, -100), new Point(9000, 9000), new Point(size.Width - 30, size.Height - 30) })
+                {
+                    var layout = ToolbarPlacement.Calculate(size, tools, options, false, point);
+                    var bounds = new Rect(size);
+                    Assert(bounds.Contains(layout.Tools) && bounds.Contains(layout.Options), "A toolbar or its options escaped the client area");
+                    Assert(!layout.Tools.IntersectsWith(layout.Options), "Options overlap the tools near a window edge");
+                }
+            }
+        });
         Check("PNG save and open", () => { Imaging.Save(image, source); var loaded = Imaging.Load(source); Assert(loaded.PixelWidth == 1200 && loaded.PixelHeight == 800, "PNG dimensions changed"); });
+        Check("Compact UI keeps all tools reachable in both themes and at minimum size", () =>
+        {
+            var app = Application.Current; var previousShutdown = app.ShutdownMode; bool previousTheme = Theme.IsDark;
+            app.ShutdownMode = ShutdownMode.OnExplicitShutdown;
+            var window = new MainWindow();
+            try
+            {
+                var editor = (AnnotationEditor)window.FindName("Annotations");
+                editor.Document!.Load(image, source);
+                typeof(MainWindow).GetMethod("Refresh", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!.Invoke(window, [false]);
+                var scene = editor.Document.Scene;
+                var root = (FrameworkElement)window.Content;
+                foreach (bool dark in new[] { false, true })
+                foreach (var size in new[] { new Size(848, 588), new Size(1158, 788), new Size(1918, 1078) })
+                {
+                    Theme.Apply(dark);
+                    void Layout() { root.Measure(size); root.Arrange(new Rect(size)); root.UpdateLayout(); }
+                    Layout();
+                    var text = (System.Windows.Controls.Button)window.FindName("AddTextButton");
+                    text.RaiseEvent(new RoutedEventArgs(System.Windows.Controls.Button.ClickEvent)); Layout();
+                    var options = (FrameworkElement)window.FindName("MarkupBar");
+                    var layer = (FrameworkElement)window.FindName("ToolLayer");
+                    Assert(options.Visibility == Visibility.Visible && ((FrameworkElement)window.FindName("FontSizeInput")).Visibility == Visibility.Visible, "Text options did not open");
+                    Assert(((FrameworkElement)window.FindName("ShapeTools")).Visibility == Visibility.Collapsed, "Text options still show the shape row");
+                    Assert(options.DesiredSize.Width < size.Width && options.ActualHeight <= 42, "Contextual controls became a bulky or overflowing ribbon");
+                    var header = (FrameworkElement)window.FindName("ToolPalette");
+                    Assert(System.Windows.Controls.Canvas.GetLeft(header) >= 0 && System.Windows.Controls.Canvas.GetLeft(header) + header.ActualWidth <= layer.ActualWidth, "Header tools escaped the window");
+                    var icon = (UiIcon)text.Content;
+                    Assert(((SolidColorBrush)icon.Foreground).Color == ((SolidColorBrush)app.FindResource("Accent")).Color, "Icons did not inherit the selected theme color");
+                    Imaging.Save(Imaging.Render(root, (int)size.Width, (int)size.Height), Path.Combine(directory, $"ui-{(dark ? "dark" : "light")}-text-{size.Width:0}.png"));
+                    ((System.Windows.Controls.Button)window.FindName("MarkupButton")).RaiseEvent(new RoutedEventArgs(System.Windows.Controls.Button.ClickEvent)); Layout();
+                    Assert(((FrameworkElement)window.FindName("ShapeTools")).Visibility == Visibility.Visible && ((FrameworkElement)window.FindName("FontSizeInput")).Visibility == Visibility.Collapsed, "Markup options did not replace text options");
+                    Assert(editor.Document.Scene == scene && !editor.Document.Dirty, "Moving between UI tools changed the image history");
+                    Imaging.Save(Imaging.Render(root, (int)size.Width, (int)size.Height), Path.Combine(directory, $"ui-{(dark ? "dark" : "light")}-{size.Width:0}.png"));
+                }
+            }
+            finally { window.Close(); Theme.Apply(previousTheme); app.ShutdownMode = previousShutdown; }
+        });
         Check("Resize, crop and rotate", () =>
         {
             var small = Imaging.Resize(image, 600, 400); Assert(small.PixelWidth == 600 && small.PixelHeight == 400, "Resize dimensions");

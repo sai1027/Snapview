@@ -82,8 +82,8 @@ size/annotation bugs. Watch `document.Dirty`, history state, `tool`, `busy` and
 
 This is an in-app smoke/integration runner, not xUnit/NUnit or `dotnet test`.
 The WPF app starts on an STA thread, runs `SmokeTests.Run`, writes results and exits
-without opening the main window. The base suite currently has **27** checks;
-the optional fixtures add one combined HEIC/AVIF check for **28** total.
+without showing the main window. The base suite currently has **29** checks;
+the optional fixtures add one combined HEIC/AVIF check for **30** total.
 
 | Area | Assertions |
 | --- | --- |
@@ -95,6 +95,7 @@ the optional fixtures add one combined HEIC/AVIF check for **28** total.
 | Metadata | Missing GPS, synthetic GPS coordinates, source EXIF orientation, GPS omitted on export |
 | OCR | Bundled English model recognizes generated sample text locally |
 | Limits | Invalid/oversized requested dimensions are rejected |
+| Compact UI | Toolbar edge clamping, attached options, real window layout in both themes at minimum/normal/maximized dimensions, contextual controls and unchanged document state |
 | Optional codecs | Public libheif HEIC and AVIF fixtures decode successfully |
 
 The optional script downloads to `.tools\codec-fixtures` and temporarily sets
@@ -107,6 +108,7 @@ Results are beside the tested executable:
 test-output/results.json    successful checks and elapsed times
 test-output/sample.png      generated test image
 test-output/ocr.txt          recognized sample text
+test-output/ui-*.png         rendered light/dark drawing and text layouts at three sizes
 self-test-error.txt         exception details on failure
 ```
 
@@ -154,6 +156,11 @@ Check changed interactions at the 850 × 590 minimum, normal size and maximized:
     A held Delete must not remove another file or fall through after deleting an object.
 13. Open About Snapview from More at minimum, normal and maximized window sizes;
     verify the running version matches the project and Enter/Esc close the dialog.
+14. Drag the six-dot toolbar grip to each window edge; options must follow and stay
+    reachable while zoom stays in the footer. Double-click/Home or More → Dock toolbar
+    restores the centered header position. With grip focus, check arrow/Shift+arrow
+    movement. Resize/maximize after moving it, and check text/drawing/crop options
+    plus filename editing at minimum size in both themes.
 
 Do not change personal Windows defaults or remove recovery data just to validate
 a patch. Test installation/association behavior in a disposable Windows account or

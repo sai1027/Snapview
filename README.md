@@ -33,6 +33,7 @@ Snapview registers its capabilities under the current user's registry keys. It d
 | Open | Open button, drag and drop, `Ctrl+O`, Explorer file activation |
 | Browse a folder | Left/right arrows; files are ordered by name |
 | Zoom | Mouse wheel, `+` / `−`; `Ctrl+0` fits and `Ctrl+1` shows actual size |
+| Move tools | Drag the six-dot grip; options follow. Double-click the grip or … → Dock toolbar returns tools to the header. Zoom stays in the footer |
 | Pan | Drag in viewing mode, middle drag, or Space+drag while marking up |
 | Crop | `C`, drag a rectangle; outside pixels dim and live dimensions/ratio appear; Enter or Apply crop; Esc cancels |
 | Resize | Resize toolbar button; proportions can be locked |
@@ -40,7 +41,7 @@ Snapview registers its capabilities under the current user's registry keys. It d
 | Annotate | Markup: pen, rectangle, ellipse, arrow, text; click an object to move, resize or recolor it |
 | Add text | Add text or `T`, click the image and type directly; font size and color are in the markup bar |
 | Style selected words | Highlight text, then choose a color or font size; only the selection changes. No highlighted text styles the whole box |
-| Bold / italic | B / I beside Font; highlight words to style only them. Ctrl+B / Ctrl+I work while typing |
+| Bold / italic | B / I beside Size; highlight words to style only them. Ctrl+B / Ctrl+I work while typing |
 | Edit text layout | Drag Move to reposition; side handles change wrapping; corners stretch/squash; double-click or `F2` edits text |
 | Edit arrow | Drag the head/tail handles independently to redirect or shorten it |
 | Select / remove | `V` selects; Delete removes the selected object; arrow keys nudge (Shift = 10 pixels) |
@@ -91,7 +92,7 @@ dotnet run -c Release --no-build -- --self-test
 .\scripts\publish.ps1
 ```
 
-The test runner exercises the production imaging pipeline: PNG loading, crop/resize/rotate, all five output formats, saved/unsaved undo transitions, persistent original recovery, source change detection, metadata, size limits and offline OCR. UI checks are separate.
+The test runner exercises the production imaging pipeline: PNG loading, crop/resize/rotate, all five output formats, saved/unsaved undo transitions, persistent original recovery, source change detection, metadata, size limits and offline OCR. It also renders compact text/drawing layouts in both themes at three sizes and checks toolbar bounds. Live interaction checks remain separate.
 
 Publish produces a self-contained, ReadyToRun Windows x64 folder. Native WPF avoids embedding Chromium, a browser server or an always-on worker. The runtime, codecs and OCR model still add distribution size. Startup performance should be measured on target hardware; there is no universal startup time guarantee.
 

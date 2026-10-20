@@ -17,6 +17,7 @@ public partial class MainWindow : Window
 {
     private readonly ImageDocument document = new();
     private readonly RenameHistory renameHistory = new();
+    private readonly FloatingToolbar floatingToolbar;
     private readonly DispatcherTimer toastTimer = new() { Interval = TimeSpan.FromSeconds(5) };
     private readonly DispatcherTimer titleClickTimer = new();
     private string? pendingTitlePath;
@@ -40,6 +41,12 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+        floatingToolbar = new FloatingToolbar(ToolLayer, ToolPalette, MarkupBar, ToolbarGrip);
+        StateChanged += (_, _) =>
+        {
+            MaximizeIcon.Kind = WindowState == WindowState.Maximized ? "Restore" : "Maximize";
+            MaximizeButton.ToolTip = WindowState == WindowState.Maximized ? "Restore" : "Maximize";
+        };
         WindowBounds.Attach(this);
         SourceInitialized += (_, _) => HwndSource.FromHwnd(new WindowInteropHelper(this).Handle)?.AddHook(WindowMessage);
         Annotations.Document = document;
@@ -63,7 +70,7 @@ public partial class MainWindow : Window
     private async Task Work(Func<Task> action)
     {
         if (busy) return;
-        busy = true; Mouse.OverrideCursor = Cursors.Wait; EditTools.IsEnabled = false; SaveButton.IsEnabled = false;
+        busy = true; Mouse.OverrideCursor = Cursors.Wait; EditTools.IsEnabled = MarkupBar.IsEnabled = false; SaveButton.IsEnabled = false;
         Annotations.CancelInteraction(); Annotations.FinishTextEditing(); Annotations.IsEnabled = false;
         try { await action(); }
         catch (Exception ex) { Error(ex); }
@@ -74,6 +81,7 @@ public partial class MainWindow : Window
         var image = document.BaseImage;
         bool loaded = image != null;
         EditTools.IsEnabled = ZoomTools.IsEnabled = SaveButton.IsEnabled = InfoButton.IsEnabled = loaded && !busy;
+        MarkupBar.IsEnabled = loaded && !busy;
         UndoButton.IsEnabled = (document.CanUndo || renameHistory.CanUndo(document)) && !busy;
         RedoButton.IsEnabled = (document.CanRedo || renameHistory.CanRedo(document)) && !busy;
         CopyPathButton.IsEnabled = document.Path != null && !busy;
@@ -85,7 +93,7 @@ public partial class MainWindow : Window
         if (image == null)
         {
             Photo.Source = null; Annotations.RefreshScene();
-            Title = "Snapview"; TitleLabel.Text = "A clearer view"; FileStatus.Text = "Just you and your images";
+            Title = "Snapview"; TitleLabel.Text = "Snapview"; FileStatus.Text = "Just you and your images";
             PositionLabel.Text = "LOCAL. SIMPLE. YOURS."; ZoomLabel.Content = "100%";
             PrevButton.Visibility = NextButton.Visibility = Visibility.Collapsed;
             return;
@@ -164,6 +172,8 @@ public partial class MainWindow : Window
     { if (e.Data.GetData(DataFormats.FileDrop) is string[] { Length: > 0 } files) OpenPath(files[0]); }
     private void WindowClosing(object? sender, CancelEventArgs e) { titleClickTimer.Stop(); if (!FinishRename() || busy || !ConfirmLeave()) e.Cancel = true; }
     private void MinimizeClick(object sender, RoutedEventArgs e) => WindowState = WindowState.Minimized;
+    private void HeaderSizeChanged(object sender, SizeChangedEventArgs e)
+    { if (TitleArea != null) TitleArea.MaxWidth = Math.Max(70, TitleSection.ActualWidth - 62); }
     private void MaximizeClick(object sender, RoutedEventArgs e) => WindowState = WindowState == WindowState.Maximized ? WindowState.Normal : WindowState.Maximized;
     private void CloseClick(object sender, RoutedEventArgs e) => Close();
 
@@ -238,21 +248,27 @@ public partial class MainWindow : Window
         Annotations.SetTool(value);
         Annotations.Ink = ink; Annotations.StrokeWidth = InkWidth;
         Overlay.Visibility = value == "Crop" ? Visibility.Visible : Visibility.Collapsed;
-        AnnotationHint.Visibility = value == "Crop" ? Visibility.Collapsed : Visibility.Visible;
-        AddTextButton.SetResourceReference(BackgroundProperty, value == "Text" ? "Selected" : "TransparentBrush");
         Overlay.Cursor = value == "View" ? Cursors.Arrow : value == "Text" ? Cursors.IBeam : Cursors.Cross;
         DrawingTools.Visibility = value == "Crop" ? Visibility.Collapsed : Visibility.Visible;
         CropHint.Visibility = ApplyCropButton.Visibility = value == "Crop" ? Visibility.Visible : Visibility.Collapsed;
-        foreach (var button in DrawingTools.Children.OfType<Button>().Where(b => b.Tag is string s && !s.StartsWith('#')))
-            button.SetResourceReference(BackgroundProperty, (string)button.Tag == value ? "Selected" : "TransparentBrush");
+        DoneIcon.Kind = value == "Crop" ? "Close" : "Check";
+        DoneButton.ToolTip = value == "Crop" ? "Cancel crop · Esc" : "Finish editing · Esc";
+        foreach (var button in ShapeTools.Children.OfType<Button>())
+            SetToolButtonState(button, (string)button.Tag == value);
         AnnotationSelectionChanged();
+    }
+    private static void SetToolButtonState(Button button, bool active)
+    {
+        button.SetResourceReference(BackgroundProperty, active ? "Selected" : "TransparentBrush");
+        button.SetResourceReference(ForegroundProperty, active ? "Accent" : "Ink");
     }
     private void CropClick(object sender, RoutedEventArgs e)
     { if (document.BaseImage != null && !busy) { MarkupBar.Visibility = Visibility.Visible; SetTool("Crop"); } }
     private void MarkupClick(object sender, RoutedEventArgs e)
     {
         if (document.BaseImage == null || busy) return;
-        if (MarkupBar.Visibility == Visibility.Visible && tool != "Crop") { DoneClick(sender, e); return; }
+        if (MarkupBar.Visibility == Visibility.Visible && tool is not ("Crop" or "Text") && Annotations.Selected?.Kind != "Text") { DoneClick(sender, e); return; }
+        if (Annotations.Selected?.Kind == "Text") Annotations.Deselect();
         MarkupBar.Visibility = Visibility.Visible; SetTool("Select"); Toast("Draw a shape, or select an existing object to move and resize it.");
     }
     private void DoneClick(object sender, RoutedEventArgs e) { SetTool("View"); MarkupBar.Visibility = Visibility.Collapsed; }
@@ -260,6 +276,7 @@ public partial class MainWindow : Window
     {
         if (document.BaseImage == null || busy) return;
         MarkupBar.Visibility = Visibility.Visible;
+        if (Annotations.Selected is { Kind: not "Text" }) Annotations.Deselect();
         SetTool("Text");
         Toast("Click the image and type. Drag side handles to wrap; corners stretch the text.");
     }
@@ -276,7 +293,7 @@ public partial class MainWindow : Window
     }
     private void SyncInkSwatches()
     {
-        foreach (var swatch in DrawingTools.Children.OfType<RadioButton>())
+        foreach (var swatch in InkSwatches.Children.OfType<RadioButton>())
             swatch.IsChecked = (Color)ColorConverter.ConvertFromString((string)swatch.Tag) == ink;
     }
     private void AnnotationSelectionChanged()
@@ -290,7 +307,11 @@ public partial class MainWindow : Window
         var textStyle = Annotations.TextSelectionStyle;
         BoldButton.IsChecked = textStyle?.Bold ?? selected?.Bold ?? false;
         ItalicButton.IsChecked = textStyle?.Italic ?? selected?.Italic ?? false;
-        StrokeLabel.Visibility = StrokeSize.Visibility = text ? Visibility.Collapsed : Visibility.Visible;
+        ShapeTools.Visibility = StrokeSize.Visibility = text ? Visibility.Collapsed : Visibility.Visible;
+        StrokeLabel.Visibility = Visibility.Collapsed;
+        SetToolButtonState(AddTextButton, text && tool != "Crop");
+        SetToolButtonState(MarkupButton, !text && tool is not ("View" or "Crop"));
+        SetToolButtonState(CropToolButton, tool == "Crop");
         DeleteAnnotationButton.IsEnabled = selected != null;
         if (selected != null)
         {
@@ -305,6 +326,7 @@ public partial class MainWindow : Window
             : selected?.Kind == "Arrow" ? "Drag either end handle to shorten or redirect the arrow. Drag the line or Move handle to reposition."
             : "Click an object to select it. Drag to move; use handles to resize. Delete removes it; Ctrl+Z undoes.";
         SyncInkSwatches(); syncingAnnotationControls = false;
+        floatingToolbar?.Arrange();
     }
     private void StrokeChanged(object sender, SelectionChangedEventArgs e)
     { if (!syncingAnnotationControls && Annotations?.Document != null) Annotations.ChangeStroke(InkWidth); }
@@ -470,7 +492,7 @@ public partial class MainWindow : Window
         RenameInput.IsUndoEnabled = false;
         RenameInput.Text = System.IO.Path.GetFileNameWithoutExtension(path);
         RenameInput.IsUndoEnabled = true;
-        RenameInput.Width = Math.Clamp(TitleLabel.ActualWidth + 24, 160, 340);
+        RenameInput.Width = double.NaN; // The title column constrains the editor at small window sizes.
         RenameExtension.Text = System.IO.Path.GetExtension(path);
         CopyPathButton.Visibility = Visibility.Collapsed; RenameHost.Visibility = Visibility.Visible;
         Dispatcher.BeginInvoke(DispatcherPriority.Input, () =>
@@ -631,6 +653,7 @@ public partial class MainWindow : Window
         Item("Copy image                 Ctrl+C", (_, _) => CopyImage(), document.BaseImage != null && !busy);
         menu.Items.Add(new Separator());
         Item("Set as default viewer…", (_, _) => DefaultViewer());
+        Item("Dock toolbar", (_, _) => floatingToolbar.Dock());
         Item("Keyboard shortcuts", (_, _) => MessageBox.Show(this,
             "Ctrl+O  Open image\nCtrl+V  Paste image\nCtrl+C  Copy edited image\nCtrl+S  Save\nCtrl+Shift+S  Save copy / convert\nCtrl+Z / Ctrl+Y  Undo / redo\nCtrl+0 / Ctrl+1  Fit / actual size\n+ / − or mouse wheel  Zoom\nDrag / middle drag / Space+drag  Pan\n← / →  Previous / next in folder\nDelete  Delete selected object, or recycle the image file\nR  Rotate clockwise\nC  Crop · Enter to apply · Esc to cancel\nM  Markup · T to add text\nCtrl+I  Image details\nCtrl+Shift+C  Extract text\nF11  Toggle maximized view", "Keyboard shortcuts"));
         Item("About Snapview", (_, _) => Dialogs.About(this));
@@ -672,6 +695,7 @@ public partial class MainWindow : Window
     private void WindowKeyDown(object sender, KeyEventArgs e)
     {
         if (busy) return;
+        if (floatingToolbar.HandleKey(e)) return;
         if (renamePath != null && RenameInput.IsKeyboardFocusWithin)
         {
             if (e.Key == Key.Escape) { EndRename(); Keyboard.ClearFocus(); e.Handled = true; }
