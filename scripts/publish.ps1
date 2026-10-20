@@ -1,5 +1,7 @@
 param([string]$Dotnet = 'dotnet')
 $ErrorActionPreference = 'Stop'
+. (Join-Path $PSScriptRoot 'resolve-dotnet.ps1')
+$Dotnet = Resolve-SnapviewDotnet -Dotnet $Dotnet
 $projectRoot = Split-Path $PSScriptRoot -Parent
 & $Dotnet publish (Join-Path $projectRoot 'Snapview.csproj') -c Release -r win-x64 --self-contained true -p:PublishReadyToRun=true -o (Join-Path $projectRoot 'artifacts\Snapview')
 if ($LASTEXITCODE -ne 0) { throw 'Publish failed' }

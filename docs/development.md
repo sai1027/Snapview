@@ -42,7 +42,9 @@ expected SHA-256 is recorded in [third-party notices](../THIRD-PARTY-NOTICES.md)
 Get-FileHash .\tessdata\eng.traineddata -Algorithm SHA256
 ```
 
-For an SDK outside PATH, use its full executable path:
+The publish and test scripts look for `dotnet` on PATH, then in
+`%LOCALAPPDATA%\Snapview\dotnet`, then `%ProgramFiles%\dotnet`. They do not change
+your PATH. To select another SDK, use its full executable path:
 
 ```powershell
 $sdk = 'C:\Tools\dotnet\dotnet.exe' # replace with your SDK location
@@ -53,7 +55,8 @@ $sdk = 'C:\Tools\dotnet\dotnet.exe' # replace with your SDK location
 
 The initial development machine also used an isolated SDK under
 `%LOCALAPPDATA%\Snapview\dotnet`; this is a local convenience, not a prerequisite
-or a path to hardcode into application code. If directly starting a framework-
+or a path to hardcode into application code. The scripts recognize it as a fallback.
+If directly starting a framework-
 dependent apphost cannot find that runtime, use the selected SDK host to run
 `Snapview.dll`, or configure `DOTNET_ROOT` for that shell.
 
@@ -145,6 +148,12 @@ Check changed interactions at the 850 × 590 minimum, normal size and maximized:
     opening, previous-image fallback at the end, empty canvas after deleting the only
     image, errors and restored confirmation. The pipeline suite recycles
     its own uniquely named test file; never validate deletion on personal photos.
+12. Press Delete outside text fields with no object selected; verify the same image
+    confirmation and navigation as the toolbar. Cancel must keep the image. Selected
+    objects still delete with undo; text/rename/font fields keep native Delete behavior.
+    A held Delete must not remove another file or fall through after deleting an object.
+13. Open About Snapview from More at minimum, normal and maximized window sizes;
+    verify the running version matches the project and Enter/Esc close the dialog.
 
 Do not change personal Windows defaults or remove recovery data just to validate
 a patch. Test installation/association behavior in a disposable Windows account or

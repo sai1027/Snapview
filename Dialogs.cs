@@ -1,10 +1,21 @@
 using System.Windows;
 using System.Windows.Controls;
+using System.Reflection;
 
 namespace Snapview;
 
 internal static class Dialogs
 {
+    internal static string AppVersion => typeof(App).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion.Split('+')[0] ?? "Unknown";
+
+    public static void About(Window owner)
+    {
+        var window = Create(owner, "About Snapview", $"Version {AppVersion}\n\nA Windows image viewer with essential editing and local text extraction.");
+        var close = Action(window, "Close", () => window.Close());
+        close.IsDefault = close.IsCancel = true;
+        window.ShowDialog();
+    }
+
     public static Window Create(Window owner, string title, string description, double width = 420)
     {
         var window = new Window { Owner = owner, Title = title, Width = width, SizeToContent = SizeToContent.Height, ResizeMode = ResizeMode.NoResize, WindowStartupLocation = WindowStartupLocation.CenterOwner, ShowInTaskbar = false, MaxHeight = 650 };

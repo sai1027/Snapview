@@ -45,6 +45,8 @@ dotnet run -c Release --no-build
 ```
 
 Scripts with an SDK parameter accept `-Dotnet 'C:\path\to\dotnet.exe'`.
+Without an override, publish/test resolve PATH, `%LOCALAPPDATA%\Snapview\dotnet`,
+then `%ProgramFiles%\dotnet` through `scripts/resolve-dotnet.ps1`.
 Tests write `bin/Release/net10.0-windows/win-x64/test-output/results.json`;
 failure exits 1 and writes `self-test-error.txt` beside the executable.
 `bin/`, `obj/`, `artifacts/`, `.tools/` are generated/ignored; edit source instead.
@@ -110,6 +112,10 @@ Image deletion uses the Recycle Bin and opens the next folder image after succes
 retains original recovery copies. The confirmation defaults to No; remember the
 skip checkbox only after Yes and successful deletion. More can restore confirmation.
 The preference is in `%LOCALAPPDATA%\Snapview\file-actions.json`.
+Plain Delete uses that workflow when no annotation is selected and no text field has
+focus. Selected objects retain scene undo, text fields retain editing, and Delete
+auto-repeat does not trigger additional object/file deletions. Backspace deletes objects only.
+More > About Snapview displays the running assembly's informational version.
 
 Installation adds Start and Installed apps entries and registers supported image types
 through the windowless `--register` command. Windows defaults remain user-selected.

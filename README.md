@@ -49,9 +49,10 @@ Snapview registers its capabilities under the current user's registry keys. It d
 | Copy path | Hover the filename for its full path; single-click to copy after the double-click interval, or use Copy image path in Image details |
 | Rename image | Double-click the filename to edit in place; click outside or Enter to apply changes, Esc to cancel; the extension stays unchanged |
 | Undo rename | Ctrl+Z while editing undoes typing; after leaving the field it restores the previous file name. Ctrl+Y redoes a committed rename |
-| Delete image file | Trash button before Undo → Yes / No; recycles the file and opens the next image by name, or the previous image at the end of the folder. With no images left, returns to the open screen. Optional checkbox skips future confirmations |
+| Delete image file | Trash button or `Delete` with no selected object and outside text fields → Yes / No; recycles the file and opens the next image by name, or the previous image at the end of the folder. With no images left, returns to the open screen. Optional checkbox skips future confirmations |
 | Restore delete prompt | … → Confirm before deleting images |
 | Appearance | … → Appearance → Light / Dark; your choice is remembered |
+| App version | … → About Snapview |
 | Map | View on map opens the source coordinates in OpenStreetMap in your browser |
 | Save | `Ctrl+S` replaces supported files; Save copy or `Ctrl+Shift+S` converts/exports |
 | Undo / redo | Toolbar arrows; `Ctrl+Z` / `Ctrl+Y` (also `Ctrl+Shift+Z` for redo) |

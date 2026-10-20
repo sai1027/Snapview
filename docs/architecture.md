@@ -195,8 +195,11 @@ capture bitmap buffers or add image dirty state for a file-only rename. A collis
 leaves the file and pending history entry intact. New edits discard rename redo;
 opening/pasting/deleting or saving to a different path resets file-name history.
 
-The file-delete toolbar button is distinct from Delete selected object and the
-Delete key for annotations. `Dialogs.DeleteImage` shows the requested Yes/No prompt,
+The file-delete toolbar button and plain Delete with no selected annotation share
+the same file workflow. A selected annotation takes priority; Delete/Backspace remove
+that object through scene history. Text fields retain their own Delete behavior,
+clipboard images have no disk-delete action, and held Delete repeats are ignored.
+`Dialogs.DeleteImage` shows the requested Yes/No prompt,
 with No as the default and Esc/window-close canceling. Its checkbox is persisted
 only after Yes and successful deletion. **… → Confirm before deleting images**
 can restore confirmation. The boolean lives in `file-actions.json` under the local
@@ -225,6 +228,10 @@ The result opens in a selectable/copyable dialog. No OCR engine runs at startup;
 there is no text overlay selection, model download or additional-language picker.
 
 ## Appearance
+
+**… → About Snapview** opens a themed dialog with the running assembly's informational
+version (without the source-revision suffix). The project file remains the version source;
+the UI does not hardcode a separate version number. Enter or Esc closes the dialog.
 
 `Theme.Load` reads a boolean from `%LOCALAPPDATA%\Snapview\appearance.json`, with
 Light as the default/fallback. **… → Appearance → Light / Dark** replaces semantic

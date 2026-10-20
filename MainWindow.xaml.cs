@@ -632,7 +632,8 @@ public partial class MainWindow : Window
         menu.Items.Add(new Separator());
         Item("Set as default viewer…", (_, _) => DefaultViewer());
         Item("Keyboard shortcuts", (_, _) => MessageBox.Show(this,
-            "Ctrl+O  Open image\nCtrl+V  Paste image\nCtrl+C  Copy edited image\nCtrl+S  Save\nCtrl+Shift+S  Save copy / convert\nCtrl+Z / Ctrl+Y  Undo / redo\nCtrl+0 / Ctrl+1  Fit / actual size\n+ / − or mouse wheel  Zoom\nDrag / middle drag / Space+drag  Pan\n← / →  Previous / next in folder\nR  Rotate clockwise\nC  Crop · Enter to apply · Esc to cancel\nM  Markup · T to add text\nCtrl+I  Image details\nCtrl+Shift+C  Extract text\nF11  Toggle maximized view", "Keyboard shortcuts"));
+            "Ctrl+O  Open image\nCtrl+V  Paste image\nCtrl+C  Copy edited image\nCtrl+S  Save\nCtrl+Shift+S  Save copy / convert\nCtrl+Z / Ctrl+Y  Undo / redo\nCtrl+0 / Ctrl+1  Fit / actual size\n+ / − or mouse wheel  Zoom\nDrag / middle drag / Space+drag  Pan\n← / →  Previous / next in folder\nDelete  Delete selected object, or recycle the image file\nR  Rotate clockwise\nC  Crop · Enter to apply · Esc to cancel\nM  Markup · T to add text\nCtrl+I  Image details\nCtrl+Shift+C  Extract text\nF11  Toggle maximized view", "Keyboard shortcuts"));
+        Item("About Snapview", (_, _) => Dialogs.About(this));
         menu.PlacementTarget = (Button)sender; menu.IsOpen = true;
     }
     private void DefaultViewer()
@@ -677,7 +678,7 @@ public partial class MainWindow : Window
             else if (e.Key == Key.Enter) { if (FinishRename()) Keyboard.ClearFocus(); e.Handled = true; }
             return; // TextBox handles Ctrl+Z while the file name is still a draft.
         }
-        if (e.OriginalSource is TextBox || Annotations.TextInputHasFocus)
+        if (e.OriginalSource is TextBox || Keyboard.FocusedElement is System.Windows.Controls.Primitives.TextBoxBase || Annotations.TextInputHasFocus)
         {
             if (Annotations.TextInputHasFocus && Keyboard.Modifiers.HasFlag(ModifierKeys.Control) && e.Key is Key.B or Key.I)
             {
@@ -718,7 +719,13 @@ public partial class MainWindow : Window
         }
         else switch (e.Key)
         {
-            case Key.Delete: case Key.Back: if (!Annotations.DeleteSelected()) return; break;
+            case Key.Delete:
+                if (e.IsRepeat) break;
+                if (Annotations.DeleteSelected()) break;
+                if (Keyboard.Modifiers != ModifierKeys.None || document.Path == null) return;
+                // Mark handled before a modal confirmation can start a nested input loop.
+                e.Handled = true; DeleteImageClick(this, e); return;
+            case Key.Back: if (!Annotations.DeleteSelected()) return; break;
             case Key.F2: Annotations.EditSelectedText(); break;
             case Key.V: if (document.BaseImage != null) { MarkupBar.Visibility = Visibility.Visible; SetTool("Select"); } break;
             case Key.R: RotateClick(this, e); break;

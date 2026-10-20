@@ -1,5 +1,7 @@
 param([string]$Dotnet = 'dotnet', [switch]$WithCodecFixtures)
 $ErrorActionPreference = 'Stop'
+. (Join-Path $PSScriptRoot 'resolve-dotnet.ps1')
+$Dotnet = Resolve-SnapviewDotnet -Dotnet $Dotnet
 $projectRoot = Split-Path $PSScriptRoot -Parent
 if ($WithCodecFixtures) {
     $fixtures = Join-Path $projectRoot '.tools\codec-fixtures'

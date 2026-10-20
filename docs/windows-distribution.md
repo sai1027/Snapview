@@ -11,6 +11,13 @@ From the source root, with the .NET 10 SDK:
 .\scripts\publish.ps1 -Dotnet 'C:\Tools\dotnet\dotnet.exe'
 ```
 
+Without `-Dotnet`, the script checks PATH, `%LOCALAPPDATA%\Snapview\dotnet`, and
+`%ProgramFiles%\dotnet` in that order. This also works when launched from Git Bash:
+
+```bash
+powershell -ExecutionPolicy Bypass -File ./scripts/publish.ps1
+```
+
 The script uses `dotnet publish -c Release -r win-x64 --self-contained true
 -p:PublishReadyToRun=true`. It produces a **folder**, not a single-file executable,
 MSIX, MSI, signed installer or Store submission. ReadyToRun reduces some JIT work;
