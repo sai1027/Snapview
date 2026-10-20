@@ -14,11 +14,11 @@ Windows 10/11, x64. The portable release contains its own .NET runtime:
 .\artifacts\Snapview\Snapview.exe 'C:\Pictures\photo.jpg'
 ```
 
-For a stable installation, run `artifacts\install.ps1`. It copies the app to `%LOCALAPPDATA%\Programs\Snapview` and adds a Start menu shortcut. Administrator access is not needed. Keep the whole app folder together; OCR and extended image codecs use files beside the executable.
+For a stable installation, run `artifacts\install.ps1`. It copies the app to `%LOCALAPPDATA%\Programs\Snapview`, adds a Start menu shortcut and an Installed apps entry with Uninstall, and registers image types for Windows Default apps. Administrator access is not needed. Keep the whole app folder together; OCR and extended image codecs use files beside the executable.
 
 ## Make it the default viewer
 
-1. Install to a stable location first.
+1. Run `artifacts\install.ps1`. You can then search for **Snapview** in Start or **Settings → Apps → Installed apps**.
 2. In Snapview, choose **… → Set as default viewer**.
 3. In Windows Settings, find Snapview and assign your preferred image extensions.
 
@@ -49,7 +49,7 @@ Snapview registers its capabilities under the current user's registry keys. It d
 | Copy path | Hover the filename for its full path; single-click to copy after the double-click interval, or use Copy image path in Image details |
 | Rename image | Double-click the filename to edit in place; click outside or Enter to apply changes, Esc to cancel; the extension stays unchanged |
 | Undo rename | Ctrl+Z while editing undoes typing; after leaving the field it restores the previous file name. Ctrl+Y redoes a committed rename |
-| Delete image file | Trash button before Undo → Yes / No; moves the file to the Recycle Bin and closes the image. Optional checkbox skips future confirmations |
+| Delete image file | Trash button before Undo → Yes / No; recycles the file and opens the next image by name, or the previous image at the end of the folder. With no images left, returns to the open screen. Optional checkbox skips future confirmations |
 | Restore delete prompt | … → Confirm before deleting images |
 | Appearance | … → Appearance → Light / Dark; your choice is remembered |
 | Map | View on map opens the source coordinates in OpenStreetMap in your browser |

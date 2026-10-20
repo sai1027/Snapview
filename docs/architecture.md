@@ -203,7 +203,10 @@ can restore confirmation. The boolean lives in `file-actions.json` under the loc
 Snapview settings folder; missing/invalid settings keep confirmation enabled.
 
 Deletion sends the file to the Windows Recycle Bin through the Shell and then
-clears the document, history, metadata and navigation to the empty canvas. A failed
+clears the deleted document, history and metadata. Missing files are pruned from the
+cached folder list; the next image in case-insensitive filename order opens, or the
+previous image if there is no next one. If no images remain, the canvas returns to
+the open screen. Neighbor decoding uses the same busy guard as deletion. A failed
 or canceled file operation keeps the loaded image. Confirmed deletion discards
 unsaved edits; when confirmation is disabled, the toolbar action acts immediately.
 Undo cannot recover a deleted file: restore it from the Recycle Bin. Persistent

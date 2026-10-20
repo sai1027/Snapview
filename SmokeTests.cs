@@ -290,6 +290,27 @@ internal static class SmokeTests
             bool failed = false; try { FileActions.DeleteDocument(doc); } catch (FileNotFoundException) { failed = true; }
             Assert(failed && doc.Scene == scene && doc.Path == path, "Failed deletion cleared the loaded document");
         });
+        Check("Deletion browses next, then previous, then the empty canvas", () =>
+        {
+            string folder = Path.Combine(directory, "delete-browse-" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(folder);
+            string[] paths = new[] { "a.png", "B.png", "c.png", "d.png" }.Select(name => Path.Combine(folder, name)).ToArray();
+            foreach (string path in paths) Imaging.Save(image, path);
+            var doc = new ImageDocument();
+            foreach (var (index, expected) in new (int, string?)[] { (1, paths[2]), (0, paths[2]), (3, paths[2]), (2, null) })
+            {
+                doc.Load(image, paths[index]);
+                doc.SetAnnotations([new Annotation { Box = new Rect(1, 1, 10, 10) }]);
+                FileActions.DeleteDocument(doc);
+                var remaining = paths.Where(File.Exists).Reverse().ToArray();
+                string? next = FileActions.NeighborAfterDeletion(paths[index], remaining);
+                Assert(next == expected, "Deletion chose the wrong folder neighbor");
+                if (next != null) doc.Load(Imaging.Load(next), next);
+                Assert(doc.Path == expected && !doc.Dirty && !doc.CanUndo && !doc.CanRedo, "Deletion retained the previous image's history");
+                Assert((doc.BaseImage != null) == (expected != null), "Last deletion did not return to the empty canvas");
+            }
+            Assert(FileActions.NeighborAfterDeletion(paths[1], [paths[1].ToUpperInvariant()]) == null, "Deleted path was selected again");
+        });
         Check("Delete confirmation preference defaults safe and can be restored", () =>
         {
             string path = Path.Combine(directory, "delete-preference.json");

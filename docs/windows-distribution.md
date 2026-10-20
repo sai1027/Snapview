@@ -73,8 +73,14 @@ but does not create the artifact-root install/uninstall wrapper layout.
 
 `install.ps1` copies the app directory to `%LOCALAPPDATA%\Programs\Snapview` and
 creates `Snapview.lnk` under the current user's Start menu Programs folder using
-`WScript.Shell`. It needs no elevation, does not register defaults automatically,
-and is not a transactional installer. Close an installed copy before updating;
+`WScript.Shell`. It runs the installed executable with `--register` to advertise
+image types in Default apps, and creates an Installed apps entry under
+`HKCU\Software\Microsoft\Windows\CurrentVersion\Uninstall\Snapview` with the version,
+icon, install location and quoted uninstall command. A copy of `uninstall.ps1` stays
+in the installed folder so removal works after the release folder is moved or deleted.
+Errors from removal through Settings appear in a dialog. It needs no elevation,
+leaves default choices to the user, and is not a transactional installer.
+Close an installed copy before updating;
 copying over locked files can fail, and old files are not automatically pruned.
 
 Do not hardcode a developer's checkout location into shortcuts or registry commands.
@@ -84,7 +90,9 @@ before choosing defaults.
 
 ## Default image viewer
 
-Choose **… → Set as default viewer** in the installed app. `Associations.Register`
+After installing, search for **Snapview** in Start and choose **… → Set as default viewer**.
+Installation registers the image types; this menu action also refreshes registration
+for portable copies or a moved executable. `Associations.Register`
 uses the current executable's absolute path, quoted along with the `%1` argument,
 and writes these current-user keys:
 
@@ -117,7 +125,9 @@ currently maintains a separate list that must be updated when that list changes.
 
 Run `artifacts\uninstall.ps1` from the generated layout after closing Snapview.
 It removes the expected per-user application directory, Start menu shortcut and
-Snapview's registrations/Open With values. It never removes user images or original
+Snapview's registrations/Open With values, including its Installed apps entry.
+Alternatively use **Settings → Apps → Installed apps → Snapview → Uninstall**;
+close Snapview first. It never removes user images or original
 recovery copies. Windows may require the user to choose another default viewer.
 It does not remove arbitrary portable copies or the optional development SDK.
 

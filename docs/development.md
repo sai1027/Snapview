@@ -30,8 +30,9 @@ dotnet run --project .\Snapview.csproj -c Release --no-build -- 'C:\Pictures\pho
 
 The normal build output is `bin\Release\net10.0-windows\win-x64\`. This development
 build needs an installed Windows Desktop runtime. The portable publish bundles it.
-`App.OnStartup` opens the first existing file argument; the only special CLI flag
-currently implemented is `--self-test`.
+`App.OnStartup` opens the first existing file argument. Special CLI flags are
+`--self-test` and the installer's windowless `--register`, which registers image
+types for the current user and exits 0 on success or 1 on failure.
 
 `setup.ps1` downloads `eng.traineddata` only if it is absent; it does not install the
 SDK, replace an existing model or validate its checksum. The checked-in model's
@@ -78,8 +79,8 @@ size/annotation bugs. Watch `document.Dirty`, history state, `tool`, `busy` and
 
 This is an in-app smoke/integration runner, not xUnit/NUnit or `dotnet test`.
 The WPF app starts on an STA thread, runs `SmokeTests.Run`, writes results and exits
-without opening the main window. The base suite currently has **26** checks;
-the optional fixtures add one combined HEIC/AVIF check for **27** total.
+without opening the main window. The base suite currently has **27** checks;
+the optional fixtures add one combined HEIC/AVIF check for **28** total.
 
 | Area | Assertions |
 | --- | --- |
@@ -140,8 +141,9 @@ Check changed interactions at the 850 × 590 minimum, normal size and maximized:
     no-op, Esc cancel, draft Ctrl+Z and committed rename undo/redo. Check collisions,
     extension preservation and undo order around image edits. Double-click empty
     title space to maximize/restore; inspect the title field at minimum size.
-11. On a disposable file, inspect delete Yes/No/default No/checkbox behavior, successful
-    empty-canvas reset, errors and restored confirmation. The pipeline suite recycles
+11. On disposable files, inspect delete Yes/No/default No/checkbox behavior, next-image
+    opening, previous-image fallback at the end, empty canvas after deleting the only
+    image, errors and restored confirmation. The pipeline suite recycles
     its own uniquely named test file; never validate deletion on personal photos.
 
 Do not change personal Windows defaults or remove recovery data just to validate

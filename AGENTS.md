@@ -105,7 +105,12 @@ never overwrite a destination. Empty title-bar space retains WindowChrome gestur
 RenameHistory matches scene identity to keep rename/image undo chronological; it
 must not retain pixel buffers. New edits clear rename redo; opening/pasting/deleting
 or saving to another path clears rename history. Failed moves keep history intact.
-Image deletion uses the Recycle Bin, closes the canvas only after success, and
+Image deletion uses the Recycle Bin and opens the next folder image after success
+(previous at the end, empty canvas if none remain). It
 retains original recovery copies. The confirmation defaults to No; remember the
 skip checkbox only after Yes and successful deletion. More can restore confirmation.
 The preference is in `%LOCALAPPDATA%\Snapview\file-actions.json`.
+
+Installation adds Start and Installed apps entries and registers supported image types
+through the windowless `--register` command. Windows defaults remain user-selected.
+The installed `uninstall.ps1` backs the Settings uninstall command and preserves local data.

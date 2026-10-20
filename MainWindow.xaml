@@ -79,7 +79,9 @@
           <TextBlock x:Name="FontLabel" Text="Font" VerticalAlignment="Center" Foreground="{DynamicResource Muted}" Margin="18,0,7,0" Visibility="Collapsed"/>
           <TextBox x:Name="FontSizeInput" Text="48" Width="58" Height="32" Padding="7,4" Visibility="Collapsed" LostKeyboardFocus="FontSizeChanged" KeyDown="FontSizeKeyDown" ToolTip="Text size in image pixels · Enter to apply" AutomationProperties.Name="Text font size"/>
           <ToggleButton x:Name="BoldButton" Content="B" FontWeight="Bold" Style="{StaticResource TextEmphasis}" Visibility="Collapsed" Click="BoldClick" ToolTip="Bold selected text · Ctrl+B" AutomationProperties.Name="Bold text"/>
-          <ToggleButton x:Name="ItalicButton" Content="I" FontStyle="Italic" Style="{StaticResource TextEmphasis}" Visibility="Collapsed" Click="ItalicClick" ToolTip="Italic selected text · Ctrl+I while typing" AutomationProperties.Name="Italic text"/>
+          <ToggleButton x:Name="ItalicButton" Style="{StaticResource TextEmphasis}" Visibility="Collapsed" Click="ItalicClick" ToolTip="Italic selected text · Ctrl+I while typing" AutomationProperties.Name="Italic text">
+            <Viewbox Width="16" Height="16"><Path Data="M6,2 H14 M10,2 L6,14 M2,14 H10" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ToggleButton}}" StrokeThickness="1.6" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/></Viewbox>
+          </ToggleButton>
           <Button x:Name="DeleteAnnotationButton" Content="&#xE74D;" FontFamily="Segoe Fluent Icons" Click="DeleteAnnotationClick" ToolTip="Delete selected object · Delete" AutomationProperties.Name="Delete selected object" Margin="8,0,0,0" IsEnabled="False"/>
         </WrapPanel>
         <TextBlock x:Name="CropHint" Text="Drag to select an area. Enter to crop · Esc to cancel" VerticalAlignment="Center" Foreground="{DynamicResource Muted}" Visibility="Collapsed"/>

@@ -61,6 +61,12 @@ internal static class FileActions
         Delete(document.Path ?? throw new InvalidOperationException("This image has no file on disk."));
         document.Clear();
     }
+    internal static string? NeighborAfterDeletion(string path, IEnumerable<string> siblings)
+    {
+        var ordered = siblings.Where(x => !string.Equals(x, path, StringComparison.OrdinalIgnoreCase))
+            .OrderBy(x => x, StringComparer.OrdinalIgnoreCase).ToArray();
+        return ordered.FirstOrDefault(x => StringComparer.OrdinalIgnoreCase.Compare(x, path) > 0) ?? ordered.LastOrDefault();
+    }
     [DllImport("user32.dll")]
     internal static extern uint GetDoubleClickTime();
 }

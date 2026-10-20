@@ -129,27 +129,28 @@ public partial class MainWindow : Window
     }
     private async Task LoadPath(string path)
     {
-        await Work(async () =>
-        {
-            var fullPath = System.IO.Path.GetFullPath(path);
-            var image = await Task.Run(() => Imaging.Load(fullPath));
-            document.Load(image, fullPath); renameHistory.Clear(); metadata = null; metadataRevision++;
-            SetTool("View"); MarkupBar.Visibility = Visibility.Collapsed; Overlay.Children.Clear();
-            var directory = System.IO.Path.GetDirectoryName(fullPath)!;
-            if (!string.Equals(folder, directory, StringComparison.OrdinalIgnoreCase))
-            {
-                siblings = await Task.Run(() =>
-                {
-                    try { return System.IO.Directory.EnumerateFiles(directory).Where(x => Imaging.Extensions.Contains(System.IO.Path.GetExtension(x).ToLowerInvariant())).OrderBy(x => x, StringComparer.OrdinalIgnoreCase).ToArray(); }
-                    catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { return new[] { fullPath }; }
-                });
-                folder = directory;
-            }
-            Refresh(true);
-            var ext = System.IO.Path.GetExtension(fullPath).ToLowerInvariant();
-            if (ext is ".gif" or ".tif" or ".tiff" or ".ico") Toast("Showing the first frame. Saving exports this frame as a still image.");
-        });
+        await Work(() => LoadDocument(path));
         if (InfoPanel.Visibility == Visibility.Visible) await ReadMetadata();
+    }
+    private async Task LoadDocument(string path)
+    {
+        var fullPath = System.IO.Path.GetFullPath(path);
+        var image = await Task.Run(() => Imaging.Load(fullPath));
+        document.Load(image, fullPath); renameHistory.Clear(); metadata = null; metadataRevision++;
+        SetTool("View"); MarkupBar.Visibility = Visibility.Collapsed; Overlay.Children.Clear();
+        var directory = System.IO.Path.GetDirectoryName(fullPath)!;
+        if (!string.Equals(folder, directory, StringComparison.OrdinalIgnoreCase))
+        {
+            siblings = await Task.Run(() =>
+            {
+                try { return System.IO.Directory.EnumerateFiles(directory).Where(x => Imaging.Extensions.Contains(System.IO.Path.GetExtension(x).ToLowerInvariant())).OrderBy(x => x, StringComparer.OrdinalIgnoreCase).ToArray(); }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { return new[] { fullPath }; }
+            });
+            folder = directory;
+        }
+        Refresh(true);
+        var ext = System.IO.Path.GetExtension(fullPath).ToLowerInvariant();
+        if (ext is ".gif" or ".tif" or ".tiff" or ".ico") Toast("Showing the first frame. Saving exports this frame as a still image.");
     }
     private void OpenClick(object sender, RoutedEventArgs e)
     {
@@ -527,7 +528,7 @@ public partial class MainWindow : Window
         if (message == 0x00A1 && !FinishRename()) handled = true;
         return 0;
     }
-    private void DeleteImageClick(object sender, RoutedEventArgs e)
+    private async void DeleteImageClick(object sender, RoutedEventArgs e)
     {
         if (busy || document.Path is not string path) return;
         titleClickTimer.Stop(); pendingTitlePath = null;
@@ -538,12 +539,15 @@ public partial class MainWindow : Window
             if (!answer.Confirmed) return;
             skip = answer.Skip;
         }
-        try
+        await Work(async () =>
         {
             Annotations.CancelInteraction(); Annotations.FinishTextEditing();
             FileActions.DeleteDocument(document);
             renameHistory.Clear();
-            metadata = null; metadataRevision++; siblings = []; folder = null;
+            metadata = null; metadataRevision++;
+            siblings = siblings.Where(x => !string.Equals(x, path, StringComparison.OrdinalIgnoreCase) && File.Exists(x)).ToArray();
+            string? next = FileActions.NeighborAfterDeletion(path, siblings);
+            if (next == null) folder = null;
             SetTool("View"); MarkupBar.Visibility = InfoPanel.Visibility = Visibility.Collapsed;
             Refresh(); Toast("Image moved to the Recycle Bin");
             if (skip != FileActions.SkipDeleteConfirmation)
@@ -551,8 +555,8 @@ public partial class MainWindow : Window
                 try { FileActions.RememberDeleteConfirmation(skip); }
                 catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { Toast("Image deleted. The confirmation preference could not be saved."); }
             }
-        }
-        catch (Exception ex) { Error(ex); }
+            if (next != null) await LoadDocument(next);
+        });
     }
     private void CopyText(string text, string message)
     { try { Clipboard.SetText(text); Toast(message); } catch (Exception ex) { Error(ex); } }

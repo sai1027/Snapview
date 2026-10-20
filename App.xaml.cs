@@ -8,6 +8,17 @@ public partial class App : Application
     protected override void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
+        if (e.Args.Contains("--register"))
+        {
+            // The installer waits for this windowless process before reporting success.
+            try
+            {
+                Associations.Register(Path.Combine(AppContext.BaseDirectory, "Snapview.exe"));
+                Shutdown(0);
+            }
+            catch { Shutdown(1); }
+            return;
+        }
         if (e.Args.Contains("--self-test"))
         {
             try
